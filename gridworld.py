@@ -10,11 +10,13 @@ class GridWorldConfig:
     n_cols: int = 5
     start: tuple = (0, 0)
     goal: tuple = (4, 4)
-    obstacles: list = None
-    traps: list = None
+    obstacles: list = [(1, 1), (2, 2), (3, 3)]
+    traps: list = [(1, 3), (3, 1)]
     reward_goal: float = 10.0
     reward_trap: float = -10.0
     reward_step: float = -0.1
+    terminate_on_goal: bool = True
+    terminate_on_trap: bool = True
 
 
 class GridWorldGenerator:
@@ -29,8 +31,8 @@ class GridWorldGenerator:
     def random_config(seed: int) -> GridWorldConfig:
         random.seed(seed)
 
-        n_rows = random.randint(3, 10)
-        n_cols = random.randint(3, 10)
+        n_rows = random.randint(5, 10)
+        n_cols = random.randint(5, 10)
         start = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
         goal = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
 
