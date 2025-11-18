@@ -1,6 +1,7 @@
 import random
 
 from dataclasses import dataclass
+from typing import NoReturn
 
 
 @dataclass
@@ -17,7 +18,7 @@ class GridWorldConfig:
 
 
 class GridWorldGenerator:
-    def __new__(cls):
+    def __new__(cls: type, *args: object, **kwargs: object) -> NoReturn:
         raise TypeError("GridWorldGenerator is not instantiable.")
 
     @staticmethod
