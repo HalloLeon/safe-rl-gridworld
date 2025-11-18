@@ -63,3 +63,62 @@ class GridWorldGenerator:
             reward_trap=-10.0,
             reward_step=-0.1,
         )
+
+
+class GridWorld:
+    ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
+
+    def __init__(self, config: GridWorldConfig):
+        self.config = config
+        self.state = config.start
+        self.done = False
+
+    def in_bounds(self, state: tuple) -> bool:
+        return 0 <= state[0] < self.config.n_rows and 0 <= state[1] < self.config.n_cols
+
+    def is_goal(self, state: tuple) -> bool:
+        return state == self.config.goal
+
+    def is_obstacle(self, state: tuple) -> bool:
+        return self.config.obstacles and state in self.config.obstacles
+
+    def is_trap(self, state: tuple) -> bool:
+        return self.config.traps and state in self.config.traps
+
+    def reset(self) -> tuple:
+        self.state = self.config.start
+        self.done = False
+
+        return self.state
+
+    def step(self, action: int) -> tuple:
+        if self.done:
+            raise RuntimeError("Episode has terminated. Please reset the environment.")
+
+        row, col = self.state
+        d_row, d_col = self.ACTIONS[action]
+
+        new_row = row + d_row
+        new_column = col + d_col
+
+        new_state = (new_row, new_column)
+
+        if not self.in_bounds(new_state) or self.is_obstacle(new_state):
+            new_state = self.state
+
+        reward = self.config.reward_step
+
+        if self.is_goal(new_state):
+            reward += self.config.reward_goal
+
+            if self.config.terminate_on_goal:
+                self.done = True
+        elif self.is_trap(new_state):
+            reward += self.config.reward_trap
+
+            if self.config.terminate_on_trap:
+                self.done = True
+
+        self.state = new_state
+
+        return new_state, reward, self.done
