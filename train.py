@@ -3,7 +3,7 @@ import numpy as np
 
 from agent import QLearningAgent
 from gridworld import GridWorld
-from gridworld import GridWorldGenerator
+from gridworld import GridConfigFactory
 
 
 def run_episode(env, agent, max_steps=100):
@@ -37,8 +37,8 @@ def rolling_sum(x, window=25):
     return avg
 
 
-def main():
-    config = GridWorldGenerator.random_config(n_rows=8, n_cols=8)
+def train_baseline():
+    config = GridConfigFactory.random_config(n_rows=8, n_cols=8)
     env = GridWorld(config)
 
     n_states = config.n_rows * config.n_cols
@@ -91,4 +91,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    train_baseline()

@@ -5,7 +5,7 @@ from typing import NoReturn
 
 
 @dataclass
-class GridWorldConfig:
+class GridConfig:
     n_rows: int = 5
     n_cols: int = 5
     start: tuple = (0, 0)
@@ -19,13 +19,24 @@ class GridWorldConfig:
     terminate_on_trap: bool = True
 
 
-class GridWorldGenerator:
-    def __new__(cls: type, *args: object, **kwargs: object) -> NoReturn:
-        raise TypeError("GridWorldGenerator is not instantiable.")
+class GridConfigFactory:
+    @dataclass
+    class GridContext:
+        n_rows: int
+        n_cols: int
+        start: tuple
+        goal: tuple
+        path: list
+        obstacles: list
+        hazards: list
+        rng: random.Random
 
-    @staticmethod
-    def default_config() -> GridWorldConfig:
-        return GridWorldConfig()
+    def __new__(cls: type, *args: object, **kwargs: object) -> NoReturn:
+        raise TypeError("GridConfigFactory is not instantiable.")
+
+    @classmethod
+    def default_config(cls: type) -> GridConfig:
+        return GridConfig()
 
     @staticmethod
     def random_config(n_rows: int, n_cols: int, seed: int = 0) -> GridWorldConfig:
@@ -53,7 +64,7 @@ class GridWorldGenerator:
             if trap != start and trap != goal and trap not in obstacles:
                 traps.append(trap)
 
-        return GridWorldConfig(
+        return GridConfig(
             n_rows=n_rows,
             n_cols=n_cols,
             start=start,
@@ -69,7 +80,7 @@ class GridWorldGenerator:
 class GridWorld:
     ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
 
-    def __init__(self, config: GridWorldConfig):
+    def __init__(self, config: GridConfig):
         self.config = config
         self.state = config.start
         self.done = False
