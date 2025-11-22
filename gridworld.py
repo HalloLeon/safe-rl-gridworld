@@ -195,6 +195,12 @@ class GridWorld:
     def is_hazard(self, state: tuple) -> bool:
         return self.config.hazards and state in self.config.hazards
 
+    def index_to_state(self, index: int) -> tuple:
+        row = index // self.config.n_cols
+        col = index % self.config.n_cols
+
+        return (row, col)
+
     def state_to_index(self, state: tuple) -> int:
         return state[0] * self.config.n_cols + state[1]
 
