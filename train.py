@@ -12,7 +12,7 @@ def run_episode(env, agent, max_steps=100):
 
     for step in range(max_steps):
         action = agent.get_action(state)
-        next_state, reward, done = env.step(action)
+        next_state, reward, done, info = env.step(action)
         agent.update_q_value(state, action, reward, next_state)
         total_reward += reward
         state = next_state
@@ -22,7 +22,7 @@ def run_episode(env, agent, max_steps=100):
 
     agent.decay_exploration()
 
-    return total_reward, step + 1
+    return total_reward, info, step + 1
 
 
 def rolling_sum(x, window=25):
@@ -58,10 +58,12 @@ def main():
     n_episodes = 1000
     rewards = []
     steps = []
+    unsafe_flags = []
 
     for _ in range(n_episodes):
-        total_reward, total_steps = run_episode(env, agent)
+        total_reward, info, total_steps = run_episode(env, agent)
         rewards.append(total_reward)
+        unsafe_flags.append(info["hazard"])
         steps.append(total_steps)
 
     rolling_window = 25
@@ -72,6 +74,13 @@ def main():
     plt.xlabel("Episode")
     plt.ylabel("Reward")
     plt.savefig("plots/reward.png", dpi=150)
+
+    plt.figure()
+    plt.plot(rolling_sum(unsafe_flags, rolling_window))
+    plt.title(f"Unsafe Episodes Fraction (rolling window={rolling_window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Steps")
+    plt.savefig("plots/unsafe.png", dpi=150)
 
     plt.figure()
     plt.plot(rolling_sum(steps, rolling_window))
