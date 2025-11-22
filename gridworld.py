@@ -10,8 +10,8 @@ class GridWorldConfig:
     n_cols: int = 5
     start: tuple = (0, 0)
     goal: tuple = (4, 4)
-    obstacles: list = [(1, 1), (2, 2), (3, 3)]
-    traps: list = [(1, 3), (3, 1)]
+    obstacles: tuple = ((1, 1), (2, 2), (3, 3))
+    traps: tuple = ((1, 3), (3, 1))
     reward_goal: float = 10.0
     reward_trap: float = -10.0
     reward_step: float = -0.1
