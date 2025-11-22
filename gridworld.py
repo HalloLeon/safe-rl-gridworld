@@ -11,7 +11,7 @@ class GridWorldConfig:
     start: tuple = (0, 0)
     goal: tuple = (4, 4)
     obstacles: tuple = ((1, 1), (2, 2), (3, 3))
-    traps: tuple = ((1, 3), (3, 1))
+    hazards: tuple = ((1, 3), (3, 1))
     reward_goal: float = 10.0
     reward_trap: float = -10.0
     reward_step: float = -0.1
@@ -59,7 +59,7 @@ class GridWorldGenerator:
             start=start,
             goal=goal,
             obstacles=obstacles,
-            traps=traps,
+            hazards=traps,
             reward_goal=10.0,
             reward_trap=-10.0,
             reward_step=-0.1,
@@ -83,8 +83,8 @@ class GridWorld:
     def is_obstacle(self, state: tuple) -> bool:
         return self.config.obstacles and state in self.config.obstacles
 
-    def is_trap(self, state: tuple) -> bool:
-        return self.config.traps and state in self.config.traps
+    def is_hazard(self, state: tuple) -> bool:
+        return self.config.hazards and state in self.config.hazards
 
     def state_to_index(self, state: tuple) -> int:
         return state[0] * self.config.n_cols + state[1]
@@ -117,7 +117,7 @@ class GridWorld:
 
             if self.config.terminate_on_goal:
                 self.done = True
-        elif self.is_trap(new_state):
+        elif self.is_hazard(new_state):
             reward += self.config.reward_trap
 
             if self.config.terminate_on_trap:
@@ -125,4 +125,9 @@ class GridWorld:
 
         self.state = new_state
 
-        return self.state_to_index(new_state), reward, self.done
+        return (
+            self.state_to_index(new_state),
+            reward,
+            self.done,
+            {"goal": self.is_goal(new_state), "hazard": self.is_hazard(new_state)},
+        )
