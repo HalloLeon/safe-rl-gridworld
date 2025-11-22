@@ -28,11 +28,9 @@ class GridWorldGenerator:
         return GridWorldConfig()
 
     @staticmethod
-    def random_config(seed: int) -> GridWorldConfig:
+    def random_config(n_rows: int, n_cols: int, seed: int = 0) -> GridWorldConfig:
         random.seed(seed)
 
-        n_rows = random.randint(5, 10)
-        n_cols = random.randint(5, 10)
         start = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
         goal = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
 
