@@ -88,11 +88,14 @@ class GridWorld:
     def is_trap(self, state: tuple) -> bool:
         return self.config.traps and state in self.config.traps
 
+    def state_to_index(self, state: tuple) -> int:
+        return state[0] * self.config.n_cols + state[1]
+
     def reset(self) -> tuple:
         self.state = self.config.start
         self.done = False
 
-        return self.state
+        return self.state_to_index(self.state)
 
     def step(self, action: int) -> tuple:
         if self.done:
@@ -124,4 +127,4 @@ class GridWorld:
 
         self.state = new_state
 
-        return new_state, reward, self.done
+        return self.state_to_index(new_state), reward, self.done
