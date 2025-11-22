@@ -38,43 +38,141 @@ class GridConfigFactory:
     def default_config(cls: type) -> GridConfig:
         return GridConfig()
 
-    @staticmethod
-    def random_config(n_rows: int, n_cols: int, seed: int = 0) -> GridWorldConfig:
-        random.seed(seed)
+    @classmethod
+    def random_config(cls: type, n_rows: int, n_cols: int, seed: int = 0) -> GridConfig:
+        context = cls.GridContext(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            start=(),
+            goal=(),
+            path=[],
+            obstacles=[],
+            hazards=[],
+            rng=random.Random(seed),
+        )
 
-        start = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
-        goal = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
-
-        while goal == start:
-            goal = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
-
-        obstacles = []
-
-        for _ in range(random.randint(0, (n_rows * n_cols) // 5)):
-            obstacle = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
-
-            if obstacle != start and obstacle != goal:
-                obstacles.append(obstacle)
-
-        traps = []
-
-        for _ in range(random.randint(0, (n_rows * n_cols) // 10)):
-            trap = (random.randint(0, n_rows - 1), random.randint(0, n_cols - 1))
-
-            if trap != start and trap != goal and trap not in obstacles:
-                traps.append(trap)
+        cls._select_start_goal(context)
+        cls._generate_simple_path(context)
+        cls._generate_random_obstacles(context)
+        cls._generate_hazards(context)
 
         return GridConfig(
             n_rows=n_rows,
             n_cols=n_cols,
-            start=start,
-            goal=goal,
-            obstacles=obstacles,
-            hazards=traps,
+            start=context.start,
+            goal=context.goal,
+            obstacles=context.obstacles,
+            hazards=context.hazards,
             reward_goal=10.0,
             reward_trap=-10.0,
             reward_step=-0.1,
         )
+
+    @classmethod
+    def _select_start_goal(cls: type, context: GridContext) -> None:
+        n_rows = context.n_rows
+        n_cols = context.n_cols
+        rng = context.rng
+
+        start = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
+        goal = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
+
+        while goal == start:
+            goal = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
+
+        context.start = start
+        context.goal = goal
+
+    @classmethod
+    def _generate_simple_path(cls: type, context: GridContext) -> None:
+        start = context.start
+        goal = context.goal
+
+        path = [start]
+        current = start
+
+        while current != goal:
+            current = cls._next_step(current, goal, context.rng)
+            path.append(current)
+
+        context.path = path
+
+    @staticmethod
+    def _next_step(current: tuple, goal: tuple, rng: random.Random) -> tuple:
+        row_step = 0
+        col_step = 0
+
+        if current[0] < goal[0]:
+            row_step = 1
+        elif current[0] > goal[0]:
+            row_step = -1
+
+        if current[1] < goal[1]:
+            col_step = 1
+        elif current[1] > goal[1]:
+            col_step = -1
+
+        if row_step != 0 and col_step != 0:
+            if rng.random() < 0.5:
+                return (current[0] + row_step, current[1])
+            else:
+                return (current[0], current[1] + col_step)
+        elif row_step != 0:
+            return (current[0] + row_step, current[1])
+        elif col_step != 0:
+            return (current[0], current[1] + col_step)
+
+        return current
+
+    @classmethod
+    def _generate_hazards(cls: type, context: GridContext) -> None:
+        n_rows = context.n_rows
+        n_cols = context.n_cols
+        start = context.start
+        goal = context.goal
+        path = context.path
+        obstacles = context.obstacles
+        hazards = context.hazards
+
+        for _ in range(context.rng.randint(0, (n_rows * n_cols) // 10)):
+            hazard = (
+                context.rng.randint(0, n_rows - 1),
+                context.rng.randint(0, n_cols - 1),
+            )
+
+            if (
+                hazard != start
+                and hazard != goal
+                and hazard not in obstacles
+                and hazard not in path
+                and hazard not in hazards
+            ):
+                hazards.append(hazard)
+
+    @classmethod
+    def _generate_random_obstacles(cls: type, context: GridContext) -> None:
+        n_rows = context.n_rows
+        n_cols = context.n_cols
+        start = context.start
+        goal = context.goal
+        path = context.path
+        obstacles = context.obstacles
+        hazards = context.hazards
+
+        for _ in range(context.rng.randint(0, (n_rows * n_cols) // 5)):
+            obstacle = (
+                context.rng.randint(0, n_rows - 1),
+                context.rng.randint(0, n_cols - 1),
+            )
+
+            if (
+                obstacle != start
+                and obstacle != goal
+                and obstacle not in hazards
+                and obstacle not in path
+                and obstacle not in obstacles
+            ):
+                obstacles.append(obstacle)
 
 
 class GridWorld:
