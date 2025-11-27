@@ -203,6 +203,9 @@ class GridWorld:
 
     def state_to_index(self, state: tuple) -> int:
         return state[0] * self.config.n_cols + state[1]
+    
+    def compute_label(self, state: tuple) -> int:
+        pass
 
     def reset(self) -> tuple:
         self.state = self.config.start
@@ -210,7 +213,7 @@ class GridWorld:
 
         return self.state_to_index(self.state)
 
-    def step(self, action: int) -> tuple:
+    def next_step(self, action: int) -> tuple:
         if self.done:
             raise RuntimeError("Episode has terminated. Please reset the environment.")
 
@@ -246,3 +249,6 @@ class GridWorld:
             self.done,
             {"goal": self.is_goal(new_state), "hazard": self.is_hazard(new_state)},
         )
+    
+    def peek_step(self, action: int) -> tuple:
+        pass
