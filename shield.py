@@ -1,35 +1,47 @@
+import random
+from typing import Optional
+
 from gridworld import GridWorld
+from shield_synthesis.automaton.dfa import DFA_State
+from shield_synthesis.safety_game import MDP_State
 
 
 class SafetyShield:
-    def __init__(self, env: GridWorld):
+    def __init__(
+        self,
+        env: GridWorld,
+        winning_region: set[tuple[MDP_State, DFA_State]],
+        rng: Optional[random.Random] = None,
+    ):
         self.env = env
+        self.winning_region = winning_region
+        self.rng = rng if rng is not None else random.Random()
 
-    def is_action_safe(self, state_index: int, action: int) -> bool:
-        state = self.env.index_to_state(state_index)
+    def filter_action(self, mdp_state: MDP_State, action: int) -> int:
+        if self.is_action_safe(mdp_state, action):
+            return action
 
-        next_state = (
-            state[0] + GridWorld.ACTIONS[action][0],
-            state[1] + GridWorld.ACTIONS[action][1],
-        )
+        # Try all other actions, collect safe ones
+        safe_actions = [
+            a
+            for a in range(len(GridWorld.ACTIONS))
+            if self.is_action_safe(mdp_state, a)
+        ]
 
-        if (
-            not self.env.in_bounds(next_state)
-            or self.env.is_obstacle(next_state)
-            or self.env.is_hazard(next_state)
-        ):
+        if safe_actions:
+            return self.rng.choice(safe_actions)
+
+        # No safe action found
+        return action
+
+    def is_action_safe(self, mdp_state: MDP_State, action: int) -> bool:
+        next_mdp_state = self.env.peek_step(mdp_state, action)
+        next_label = self.env.compute_label(next_mdp_state)
+        next_dfa_state = self.env.dfa.peek_next((next_label, action))
+
+        # Long-term safety via winning region
+        # (avoid states from which safety cannot be guaranteed)
+        if (next_mdp_state, next_dfa_state) not in self.winning_region:
             return False
-        else:
-            return True
 
-    def filter_action(self, state_index: int, action: int) -> int:
-        if self.is_action_safe(state_index, action):
-            return action
-        else:
-            # Find a safe action
-            for a in range(len(GridWorld.ACTIONS)):
-                if self.is_action_safe(state_index, a):
-                    return a
-
-            # If no safe action is found, return the original action
-            return action
+        return True
