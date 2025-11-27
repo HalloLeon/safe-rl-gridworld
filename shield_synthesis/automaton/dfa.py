@@ -1,4 +1,4 @@
-State = int
+DFA_State = int
 Label = int
 Action = int
 
@@ -6,9 +6,9 @@ Action = int
 class DFA:
     def __init__(
         self,
-        states: list[State],
-        initial: State,
-        safe_states: list[State],
+        states: list[DFA_State],
+        initial: DFA_State,
+        safe_states: list[DFA_State],
         alphabet: list[tuple[Label, Action]],
     ):
         self.states = states
@@ -16,11 +16,11 @@ class DFA:
         self.cur_state = initial
         self.safe_states = set(safe_states)
         self.alphabet = alphabet
-        self.transitions: dict[State, dict[tuple[Label, Action], State]] = {
+        self.transitions: dict[DFA_State, dict[tuple[Label, Action], DFA_State]] = {
             q: {} for q in states
         }
 
-    def add_transition(self, src: State, letter: tuple[Label, Action], dst: State):
+    def add_transition(self, src: DFA_State, letter: tuple[Label, Action], dst: DFA_State):
         assert src in self.states
         assert dst in self.states
         assert letter in self.alphabet
@@ -30,14 +30,14 @@ class DFA:
     def reset(self) -> None:
         self.cur_state = self.initial
 
-    def next(self, letter: tuple[Label, Action]) -> State:
+    def next(self, letter: tuple[Label, Action]) -> DFA_State:
         self.cur_state = self.transitions[self.cur_state][letter]
         return self.cur_state
 
-    def peek_next(self, state: State, letter: tuple[Label, Action]) -> State:
+    def peek_next(self, state: DFA_State, letter: tuple[Label, Action]) -> DFA_State:
         return self.transitions[state][letter]
 
-    def is_safe_state(self, state: State) -> bool:
+    def is_safe_state(self, state: DFA_State) -> bool:
         return state in self.safe_states
 
 
