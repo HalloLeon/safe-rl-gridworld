@@ -30,8 +30,12 @@ class DFA:
     def reset(self) -> None:
         self.cur_state = self.initial
 
-    def next_state(self, letter: tuple[Label, Action]) -> None:
+    def next(self, letter: tuple[Label, Action]) -> State:
         self.cur_state = self.transitions[self.cur_state][letter]
+        return self.cur_state
+
+    def peek_next(self, state: State, letter: tuple[Label, Action]) -> State:
+        return self.transitions[state][letter]
 
     def is_safe_state(self, state: State) -> bool:
         return state in self.safe_states
