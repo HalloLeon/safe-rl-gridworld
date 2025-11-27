@@ -23,11 +23,11 @@ class SafetyGameSolver:
         self.mdp_next = mdp_next
         self.compute_label = compute_label
 
-    def compute_winning_states(
+    def compute_winning_region(
         self, initial_mdp_state: MDP_State
     ) -> set[tuple[MDP_State, DFA_State]]:
         reachable = self._compute_reachable_states(initial_mdp_state)
-        winning = self._compute_winning_region(reachable)
+        winning = self._compute_winning_states(reachable)
 
         return winning
 
@@ -54,7 +54,7 @@ class SafetyGameSolver:
 
         return reachable
 
-    def _compute_winning_region(
+    def _compute_winning_states(
         self, reachable: set[tuple[MDP_State, DFA_State]]
     ) -> set[tuple[MDP_State, DFA_State]]:
         winning = {state for state in reachable if self.dfa.is_safe_state(state[1])}
