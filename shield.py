@@ -2,6 +2,7 @@ import random
 from typing import Optional
 
 from gridworld import GridWorld
+from shield_synthesis.automaton.dfa import DFA
 from shield_synthesis.automaton.dfa import DFA_State
 from shield_synthesis.safety_game import MDP_State
 
@@ -10,15 +11,18 @@ class SafetyShield:
     def __init__(
         self,
         env: GridWorld,
+        dfa: DFA,
         winning_region: set[tuple[MDP_State, DFA_State]],
         rng: Optional[random.Random] = None,
     ):
         self.env = env
+        self.dfa = dfa
         self.winning_region = winning_region
         self.rng = rng if rng is not None else random.Random()
 
     def filter_action(self, mdp_state: MDP_State, action: int) -> int:
         if self.is_action_safe(mdp_state, action):
+            self._update_dfa_state(mdp_state, action)
             return action
 
         # Try all other actions, collect safe ones
@@ -29,19 +33,26 @@ class SafetyShield:
         ]
 
         if safe_actions:
-            return self.rng.choice(safe_actions)
+            selected_action = self.rng.choice(safe_actions)
+            self._update_dfa_state(mdp_state, selected_action)
 
-        # No safe action found
+            return selected_action
+
+        # No safe action found (should not happen if winning region is correct),
+        # but keep DFA in sync with original action
+        self._update_dfa_state(mdp_state, action)
         return action
 
     def is_action_safe(self, mdp_state: MDP_State, action: int) -> bool:
         next_mdp_state = self.env.peek_step(mdp_state, action)
         next_label = self.env.compute_label(next_mdp_state)
-        next_dfa_state = self.env.dfa.peek_next((next_label, action))
+        next_dfa_state = self.dfa.peek_next((next_label, action))
 
         # Long-term safety via winning region
         # (avoid states from which safety cannot be guaranteed)
-        if (next_mdp_state, next_dfa_state) not in self.winning_region:
-            return False
+        return (next_mdp_state, next_dfa_state) in self.winning_region
 
-        return True
+    def _update_dfa_state(self, mdp_state, action):
+        next_mdp_state = self.env.peek_step(mdp_state, action)
+        next_label = self.env.compute_label(next_mdp_state)
+        self.dfa.next((next_label, action))
