@@ -13,6 +13,7 @@ class DFA:
     ):
         self.states = states
         self.initial = initial
+        self.cur_state = initial
         self.safe_states = set(safe_states)
         self.alphabet = alphabet
         self.transitions: dict[State, dict[tuple[Label, Action], State]] = {
@@ -26,8 +27,11 @@ class DFA:
 
         self.transitions[src][letter] = dst
 
-    def next_state(self, state: State, letter: tuple[Label, Action]) -> State:
-        return self.transitions[state][letter]
+    def reset(self) -> None:
+        self.cur_state = self.initial
+
+    def next_state(self, letter: tuple[Label, Action]) -> None:
+        self.cur_state = self.transitions[self.cur_state][letter]
 
     def is_safe_state(self, state: State) -> bool:
         return state in self.safe_states
