@@ -1,13 +1,13 @@
 from collections import deque
 from typing import Callable
 
-from shield_synthesis.automaton.dfa import Action
 from shield_synthesis.automaton.dfa import DFA
 from shield_synthesis.automaton.dfa import DFA_State
-from shield_synthesis.automaton.dfa import Label
 
 
 MDP_State = tuple
+Label = int
+Action = int
 
 
 class SafetyGameSolver:

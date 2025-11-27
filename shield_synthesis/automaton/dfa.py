@@ -1,6 +1,9 @@
+from shield_synthesis.safety_game import Action
+from shield_synthesis.safety_game import DFA
+from shield_synthesis.safety_game import Label
+
+
 DFA_State = int
-Label = int
-Action = int
 
 
 class DFA:
