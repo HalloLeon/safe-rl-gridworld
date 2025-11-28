@@ -1,6 +1,5 @@
-import random
-
 from dataclasses import dataclass
+import random
 from typing import NoReturn
 from typing import Optional
 
@@ -11,50 +10,11 @@ AgentPos = tuple[int, int]
 GuardPos = tuple[int, int]
 FacingDirection = int  # 0: up, 1: down, 2: left, 3: right
 GuardState = tuple[GuardPos, FacingDirection]
-# MDPState: (agent_pos, tuple of (guard_pos, facing) for each guard)
-MDPState = tuple[AgentPos, tuple[GuardState, ...]]
+MDPState = tuple[
+    AgentPos, tuple[GuardState, ...]
+]  # MDPState: (agent_pos, tuple of (guard_pos, facing) for each guard)
 
 ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
-
-
-class Guard:
-    VISION_RANGE = 3
-
-    def __init__(
-        self, pos: GuardPos, facing_direction: FacingDirection, env: "GridWorld"
-    ):
-        self.pos = pos
-        self.facing_direction = facing_direction
-        self.env = env
-
-    def next_step(self):
-        dr, dc = ACTIONS[self.facing_direction]
-        next_pos = (self.pos[0] + dr, self.pos[1] + dc)
-
-        if (
-            self.env.in_bounds(next_pos)
-            and not self.env.is_wall(next_pos)
-            and not self.env.is_agent(next_pos)
-        ):
-            self.pos = next_pos
-            return
-
-        # Try all other directions
-        for action in range(len(ACTIONS)):
-            adr, adc = ACTIONS[action]
-            potential_pos = (self.pos[0] + adr, self.pos[1] + adc)
-
-            if (
-                not self.env.in_bounds(potential_pos)
-                or self.env.is_wall(potential_pos)
-                or self.env.is_agent(potential_pos)
-            ):
-                continue
-
-            self.pos = potential_pos
-            self.facing_direction = action
-
-            return
 
 
 @dataclass
@@ -225,7 +185,48 @@ class GridConfigFactory:
                 and obstacle not in path
                 and obstacle not in obstacles
             ):
-                obstacles.append(obstacle)
+                facing = rng.randint(0, len(ACTIONS) - 1)
+                guards.append((guard_pos, facing))
+
+
+class Guard:
+    VISION_RANGE = 3
+
+    def __init__(
+        self, pos: GuardPos, facing_direction: FacingDirection, env: "GridWorld"
+    ):
+        self.pos = pos
+        self.facing_direction = facing_direction
+        self.env = env
+
+    def next_step(self):
+        dr, dc = ACTIONS[self.facing_direction]
+        next_pos = (self.pos[0] + dr, self.pos[1] + dc)
+
+        if (
+            self.env.in_bounds(next_pos)
+            and not self.env.is_wall(next_pos)
+            and not self.env.is_agent(next_pos)
+        ):
+            self.pos = next_pos
+            return
+
+        # Try all other directions
+        for action in range(len(ACTIONS)):
+            adr, adc = ACTIONS[action]
+            potential_pos = (self.pos[0] + adr, self.pos[1] + adc)
+
+            if (
+                not self.env.in_bounds(potential_pos)
+                or self.env.is_wall(potential_pos)
+                or self.env.is_agent(potential_pos)
+            ):
+                continue
+
+            self.pos = potential_pos
+            self.facing_direction = action
+
+            return
 
 
 class GridWorld:
@@ -395,6 +396,8 @@ class GridWorld:
         # Goal
         if self.agent_pos in self.goals:
             reward += self.config.reward_goal
+            info["goal"] = True
+            self.goals.remove(self.agent_pos)  # Remove this goal
 
             if self.config.terminate_on_completion and len(self.goals) == 0:
                 self.done = True
