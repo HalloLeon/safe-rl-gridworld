@@ -65,12 +65,11 @@ class GridConfig:
     goals: tuple[AgentPos, ...] = ((4, 4),)
     walls: tuple[AgentPos, ...] = ((1, 1), (2, 2), (3, 3))
     guards: tuple[GuardState, ...] = ()
-    hazards: tuple[AgentPos, ...] = ()
     reward_goal: float = 10.0
-    reward_trap: float = -10.0
-    reward_step: float = -0.1
-    terminate_on_goal: bool = True
-    terminate_on_trap: bool = True
+    penalty_if_caught: float = -10.0
+    penalty_step: float = -0.1
+    terminate_on_completion: bool = True
+    terminate_if_caught: bool = True
 
 
 class GridConfigFactory:
