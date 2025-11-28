@@ -3,8 +3,8 @@ from typing import Optional
 
 from gridworld import GridWorld
 from shield_synthesis.automaton.dfa import DFA
-from shield_synthesis.automaton.dfa import DFA_State
-from shield_synthesis.safety_game import MDP_State
+from shield_synthesis.automaton.dfa import DFAState
+from shield_synthesis.safety_game import MDPState
 
 
 class SafetyShield:
@@ -12,7 +12,7 @@ class SafetyShield:
         self,
         env: GridWorld,
         dfa: DFA,
-        winning_region: set[tuple[MDP_State, DFA_State]],
+        winning_region: set[tuple[MDPState, DFAState]],
         rng: Optional[random.Random] = None,
     ):
         self.env = env
@@ -20,7 +20,7 @@ class SafetyShield:
         self.winning_region = winning_region
         self.rng = rng if rng is not None else random.Random()
 
-    def filter_action(self, mdp_state: MDP_State, action: int) -> int:
+    def filter_action(self, mdp_state: MDPState, action: int) -> int:
         if self.is_action_safe(mdp_state, action):
             self._update_dfa_state(mdp_state, action)
             return action
@@ -43,7 +43,7 @@ class SafetyShield:
         self._update_dfa_state(mdp_state, action)
         return action
 
-    def is_action_safe(self, mdp_state: MDP_State, action: int) -> bool:
+    def is_action_safe(self, mdp_state: MDPState, action: int) -> bool:
         next_mdp_state = self.env.peek_step(mdp_state, action)
         next_label = self.env.compute_label(next_mdp_state)
         next_dfa_state = self.dfa.peek_next((next_label, action))

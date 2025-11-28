@@ -3,15 +3,15 @@ from shield_synthesis.safety_game import DFA
 from shield_synthesis.safety_game import Label
 
 
-DFA_State = int
+DFAState = int
 
 
 class DFA:
     def __init__(
         self,
-        states: list[DFA_State],
-        initial: DFA_State,
-        safe_states: list[DFA_State],
+        states: list[DFAState],
+        initial: DFAState,
+        safe_states: list[DFAState],
         alphabet: list[tuple[Label, Action]],
     ):
         self.states = states
@@ -19,12 +19,12 @@ class DFA:
         self.cur_state = initial
         self.safe_states = set(safe_states)
         self.alphabet = alphabet
-        self.transitions: dict[DFA_State, dict[tuple[Label, Action], DFA_State]] = {
+        self.transitions: dict[DFAState, dict[tuple[Label, Action], DFAState]] = {
             q: {} for q in states
         }
 
     def add_transition(
-        self, src: DFA_State, letter: tuple[Label, Action], dst: DFA_State
+        self, src: DFAState, letter: tuple[Label, Action], dst: DFAState
     ):
         assert src in self.states
         assert dst in self.states
@@ -35,18 +35,18 @@ class DFA:
     def reset(self) -> None:
         self.cur_state = self.initial
 
-    def next(self, letter: tuple[Label, Action]) -> DFA_State:
+    def next(self, letter: tuple[Label, Action]) -> DFAState:
         self.cur_state = self.transitions[self.cur_state][letter]
         return self.cur_state
 
-    def peek_next(self, letter: tuple[Label, Action]) -> DFA_State:
+    def peek_next(self, letter: tuple[Label, Action]) -> DFAState:
         return self.transitions[self.cur_state][letter]
 
-    def is_safe_state(self, state: DFA_State) -> bool:
+    def is_safe_state(self, state: DFAState) -> bool:
         return state in self.safe_states
 
 
-def make_simple_dfa(
+def build_simple_dfa(
     safe_labels: list[Label],
     unsafe_labels: list[Label],
     actions: list[Action],

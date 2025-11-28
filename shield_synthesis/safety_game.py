@@ -2,10 +2,10 @@ from collections import deque
 from typing import Callable
 
 from shield_synthesis.automaton.dfa import DFA
-from shield_synthesis.automaton.dfa import DFA_State
+from shield_synthesis.automaton.dfa import DFAState
 
 
-MDP_State = tuple
+MDPState = tuple
 Label = int
 Action = int
 
@@ -15,8 +15,8 @@ class SafetyGameSolver:
         self,
         dfa: DFA,
         actions: list[Action],
-        mdp_next: Callable[[MDP_State, Action], MDP_State],
-        compute_label: Callable[[MDP_State], Label],
+        mdp_next: Callable[[MDPState, Action], MDPState],
+        compute_label: Callable[[MDPState], Label],
     ):
         self.dfa = dfa
         self.actions = actions
@@ -24,16 +24,16 @@ class SafetyGameSolver:
         self.compute_label = compute_label
 
     def compute_winning_region(
-        self, initial_mdp_state: MDP_State
-    ) -> set[tuple[MDP_State, DFA_State]]:
+        self, initial_mdp_state: MDPState
+    ) -> set[tuple[MDPState, DFAState]]:
         reachable = self._compute_reachable_states(initial_mdp_state)
         winning = self._compute_winning_states(reachable)
 
         return winning
 
     def _compute_reachable_states(
-        self, initial_mdp_state: MDP_State
-    ) -> set[tuple[MDP_State, DFA_State]]:
+        self, initial_mdp_state: MDPState
+    ) -> set[tuple[MDPState, DFAState]]:
         initial = (initial_mdp_state, self.dfa.initial)
         reachable = {initial}
 
@@ -55,8 +55,8 @@ class SafetyGameSolver:
         return reachable
 
     def _compute_winning_states(
-        self, reachable: set[tuple[MDP_State, DFA_State]]
-    ) -> set[tuple[MDP_State, DFA_State]]:
+        self, reachable: set[tuple[MDPState, DFAState]]
+    ) -> set[tuple[MDPState, DFAState]]:
         winning = {state for state in reachable if self.dfa.is_safe_state(state[1])}
 
         changed = True
@@ -79,9 +79,9 @@ class SafetyGameSolver:
 
     def _has_safe_action(
         self,
-        mdp_state: MDP_State,
-        dfa_state: DFA_State,
-        winning: set[tuple[MDP_State, DFA_State]],
+        mdp_state: MDPState,
+        dfa_state: DFAState,
+        winning: set[tuple[MDPState, DFAState]],
     ) -> bool:
         for a in self.actions:
             next_mdp_state = self.mdp_next(mdp_state, a)
