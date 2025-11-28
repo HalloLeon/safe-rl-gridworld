@@ -271,32 +271,86 @@ class GridWorld:
     def in_bounds(self, pos: AgentPos) -> bool:
         return 0 <= pos[0] < self.config.n_rows and 0 <= pos[1] < self.config.n_cols
 
-    def is_goal(self, state: tuple) -> bool:
-        return state == self.config.goal
+    def is_wall(self, pos: AgentPos) -> bool:
+        return pos in self.config.walls
 
-    def is_obstacle(self, state: tuple) -> bool:
-        return self.config.obstacles and state in self.config.obstacles
+    def is_goal_pos(self, pos: AgentPos) -> bool:
+        return pos in self.config.goals
 
-    def is_hazard(self, state: tuple) -> bool:
-        return self.config.hazards and state in self.config.hazards
+    def is_agent(self, pos: AgentPos) -> bool:
+        return self.agent_pos == pos
 
-    def index_to_state(self, index: int) -> tuple:
+    def is_caught(self, mdp_state: MDPState) -> bool:
+        agent_pos, guard_states = mdp_state
+
+        for g_pos, facing in guard_states:
+            if g_pos == agent_pos:
+                return True
+
+            if self._is_visible_from_guard(agent_pos, g_pos, facing):
+                return True
+
+        return False
+
+    def _is_visible_from_guard(
+        self, agent_pos: AgentPos, guard_pos: GuardPos, facing: FacingDirection
+    ) -> bool:
+        # Simple FOV: straight ray in facing direction up to VISION_RANGE,
+        # blocked by walls.
+
+        dr, dc = ACTIONS[facing]
+        r, c = guard_pos
+
+        for step in range(1, Guard.VISION_RANGE + 1):
+            cell = (r + step * dr, c + step * dc)
+
+            if not self.in_bounds(cell) or self.is_wall(cell):
+                break
+
+            if cell == agent_pos:
+                return True
+
+        return False
+
+    def mdp_state_to_index(self, mdp_state: MDPState) -> int:
+        row, col = mdp_state[0]
+        return row * self.config.n_cols + col
+
+    def index_to_mdp_state(self, index: int) -> MDPState:
         row = index // self.config.n_cols
         col = index % self.config.n_cols
 
-        return (row, col)
+        # Use current guard object states
+        return self._build_mdp_state((row, col))
 
-    def state_to_index(self, state: tuple) -> int:
-        return state[0] * self.config.n_cols + state[1]
-    
-    def compute_label(self, state: tuple) -> int:
-        pass
+    def compute_label(self, mdp_state: MDPState) -> int:
+        # Label encoding for DFA / shield:
 
-    def reset(self) -> tuple:
-        self.state = self.config.start
+        #    0 = SAFE
+        #    1 = WALL      (on a wall cell)
+        #    2 = VISIBLE   (seen by guard or sharing cell with guard)
+
+        agent_pos, _ = mdp_state
+
+        if self.is_wall(agent_pos):
+            return 1
+        if self.is_caught(mdp_state):
+            return 2
+
+        return 0
+
+    def reset(self) -> int:
+        # Reset agent and guards first, then rebuild state
+
+        self.agent_pos = self.config.start
+        self.guards = self._init_guards()
+        self.goals = list(self.config.goals)
         self.done = False
 
-        return self.state_to_index(self.state)
+        self.cur_state = self._build_mdp_state(self.agent_pos)
+        self.initial_state = self.cur_state
+
+        return self.mdp_state_to_index(self.cur_state)
 
     def next_step(self, action: int) -> tuple:
         if self.done:
