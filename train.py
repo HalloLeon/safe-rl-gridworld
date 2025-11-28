@@ -111,6 +111,7 @@ def train_baseline(n_episodes: int = 500) -> None:
         total_reward, info, total_steps = run_episode(env, agent)
         rewards.append(total_reward)
         steps.append(total_steps)
+        unsafe_flags.append(1 if info.get("caught", False) else 0)
 
     rolling_window = 25
 
