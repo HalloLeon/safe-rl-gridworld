@@ -352,42 +352,138 @@ class GridWorld:
 
         return self.mdp_state_to_index(self.cur_state)
 
-    def next_step(self, action: int) -> tuple:
+    def next_step(self, action: int):
+        # Standard step function:
+
+        # - optional shield to filter the proposed action
+        # - update agent position
+        # - move guards
+        # - compute reward / termination
+
         if self.done:
             raise RuntimeError("Episode has terminated. Please reset the environment.")
 
-        row, col = self.state
-        d_row, d_col = self.ACTIONS[action]
+        # 1. Apply shield to current MDP state (if possible) to filter action
+        #    or select action after simple safety checks
+        mdp_before = self.cur_state
 
-        new_row = row + d_row
-        new_column = col + d_col
+        if self.shield is not None:
+            chosen_action = self.shield.filter_action(mdp_before, action)
+        else:
+            chosen_action = self._select_action(action)
 
-        new_state = (new_row, new_column)
+        # 2. Move agent
+        new_agent_pos = self._next_agent_pos(self.agent_pos, chosen_action)
 
-        if not self.in_bounds(new_state) or self.is_obstacle(new_state):
-            new_state = self.state
+        # Temporarily store new agent position so guards avoid it
+        self.agent_pos = new_agent_pos
 
-        reward = self.config.reward_step
+        # 3. Move guards
+        for guard in self.guards:
+            guard.next_step()
 
-        if self.is_goal(new_state):
+        # 4. Rebuild current MDP state
+        self.cur_state = self._build_mdp_state(self.agent_pos)
+
+        # 5. Compute reward and termination
+        reward = self.config.penalty_step
+        info = {
+            "goal": False,
+            "caught": False,
+        }
+
+        # Goal
+        if self.agent_pos in self.goals:
             reward += self.config.reward_goal
 
-            if self.config.terminate_on_goal:
-                self.done = True
-        elif self.is_hazard(new_state):
-            reward += self.config.reward_trap
-
-            if self.config.terminate_on_trap:
+            if self.config.terminate_on_completion and len(self.goals) == 0:
                 self.done = True
 
-        self.state = new_state
+        # Caught by guard
+        if self.is_caught(self.cur_state):
+            reward += self.config.penalty_if_caught
+            info["caught"] = True
 
-        return (
-            self.state_to_index(new_state),
-            reward,
-            self.done,
-            {"goal": self.is_goal(new_state), "hazard": self.is_hazard(new_state)},
-        )
-    
-    def peek_step(self, action: int) -> tuple:
-        pass
+            if self.config.terminate_if_caught:
+                self.done = True
+
+        return self.mdp_state_to_index(self.cur_state), reward, self.done, info
+
+    def _select_action(self, action: int) -> int:
+        # Simple fallback action selection when no shield is provided:
+        # - if proposed action leads to a valid cell, keep it;
+        # - otherwise try to find some valid action;
+        # - if none exists, return the original action.
+
+        dr, dc = ACTIONS[action]
+        new_pos = (self.agent_pos[0] + dr, self.agent_pos[1] + dc)
+
+        if self.in_bounds(new_pos) and not self.is_wall(new_pos):
+            return action
+
+        # Try to find an alternative safe action
+        for a in range(len(ACTIONS)):
+            adr, adc = ACTIONS[a]
+            potential_pos = (self.agent_pos[0] + adr, self.agent_pos[1] + adc)
+
+            if self.in_bounds(potential_pos) and not self.is_wall(potential_pos):
+                return a
+
+        # No safe alternative found -> Fall back to original
+        return action
+
+    def _next_agent_pos(self, agent_pos: AgentPos, action: int) -> AgentPos:
+        dr, dc = ACTIONS[action]
+        new_pos = (agent_pos[0] + dr, agent_pos[1] + dc)
+
+        if not self.in_bounds(new_pos) or self.is_wall(new_pos):
+            return agent_pos  # Bump into wall / out-of-bounds -> stay
+
+        return new_pos
+
+    def peek_step(self, mdp_state: MDPState, action: int) -> MDPState:
+        # Pure simulation: given an arbitrary MDP state and action,
+        # return the next MDP state (agent + guards) without side effects.
+
+        agent_pos, guard_states = mdp_state
+
+        # Simulate agent
+        new_agent_pos = self._next_agent_pos(agent_pos, action)
+
+        # Simulate guards based on new agent position
+        new_guard_states = []
+
+        for g_pos, facing in guard_states:
+            ng_pos, ng_facing = self._simulate_guard_step(g_pos, facing, new_agent_pos)
+            new_guard_states.append((ng_pos, ng_facing))
+
+        return (new_agent_pos, tuple(new_guard_states))
+
+    def _simulate_guard_step(
+        self, guard_pos: GuardPos, facing: FacingDirection, agent_pos: AgentPos
+    ) -> GuardState:
+        dr, dc = ACTIONS[facing]
+        next_pos = (guard_pos[0] + dr, guard_pos[1] + dc)
+        if (
+            self.in_bounds(next_pos)
+            and not self.is_wall(next_pos)
+            and next_pos != agent_pos
+        ):
+            return next_pos, facing
+
+        # Try all other directions
+        for a in range(len(ACTIONS)):
+            adr, adc = ACTIONS[a]
+            potential_pos = (guard_pos[0] + adr, guard_pos[1] + adc)
+
+            if (
+                not self.in_bounds(potential_pos)
+                or self.is_wall(potential_pos)
+                or potential_pos == agent_pos
+            ):
+                continue
+
+            return potential_pos, a
+
+        # No move possible
+        return guard_pos, facing
