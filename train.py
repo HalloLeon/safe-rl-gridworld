@@ -32,10 +32,48 @@ def run_episode(
 
     agent.decay_exploration()
 
+    # step is 0-based, so total steps = step + 1
     return total_reward, info, step + 1
 
 
-def rolling_sum(x, window=25):
+def build_shielded_env() -> tuple[GridWorld, GridConfigFactory]:
+    # 1. Random grid with walls and guards
+    config = GridConfigFactory.random_config(n_rows=8, n_cols=8)
+    env = GridWorld(config)
+
+    # 2. Build DFA for the safety property:
+    #    - Label 0 = SAFE
+    #    - Labels 1,2 = UNSAFE (wall / visible)
+    actions: list[Action] = list(range(len(ACTIONS)))
+    safe_labels: list[Label] = [0]
+    unsafe_labels: list[Label] = [1, 2]
+
+    dfa = build_simple_dfa(
+        safe_labels=safe_labels,
+        unsafe_labels=unsafe_labels,
+        actions=actions,
+    )
+
+    # 3. Build safety game and compute winning region
+    solver = SafetyGameSolver(
+        dfa=dfa,
+        actions=actions,
+        mdp_next=env.peek_step,
+        compute_label=env.compute_label,
+    )
+
+    # Use the environment's initial MDP state
+    initial_mdp_state = env.cur_state
+    winning_region = solver.compute_winning_region(initial_mdp_state)
+
+    # 4. Build shield and attach to env
+    shield = SafetyShield(dfa, winning_region, env.peek_step, env.compute_label)
+    env.shield = shield
+
+    return env, config
+
+
+def rolling_avg(x: list[int], window: int = 25):
     x = np.array(x)
 
     if x.size < window:
@@ -79,8 +117,8 @@ def train_baseline():
     rolling_window = 25
 
     plt.figure()
-    plt.plot(rolling_sum(rewards, rolling_window))
-    plt.title(f"Average Reward (rolling window={rolling_window})")
+    plt.plot(rolling_avg(rewards, rolling_window))
+    plt.title(f"Average Reward without Shield (rolling window={rolling_window})")
     plt.xlabel("Episode")
     plt.ylabel("Reward")
     plt.savefig("plots/reward.png", dpi=150)
