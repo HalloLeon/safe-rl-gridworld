@@ -2,16 +2,70 @@ import random
 
 from dataclasses import dataclass
 from typing import NoReturn
+from typing import Optional
+
+from shield import SafetyShield
+
+
+AgentPos = tuple[int, int]
+GuardPos = tuple[int, int]
+FacingDirection = int  # 0: up, 1: down, 2: left, 3: right
+GuardState = tuple[GuardPos, FacingDirection]
+# MDPState: (agent_pos, tuple of (guard_pos, facing) for each guard)
+MDPState = tuple[AgentPos, tuple[GuardState, ...]]
+
+ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
+
+
+class Guard:
+    VISION_RANGE = 3
+
+    def __init__(
+        self, pos: GuardPos, facing_direction: FacingDirection, env: "GridWorld"
+    ):
+        self.pos = pos
+        self.facing_direction = facing_direction
+        self.env = env
+
+    def next_step(self):
+        dr, dc = ACTIONS[self.facing_direction]
+        next_pos = (self.pos[0] + dr, self.pos[1] + dc)
+
+        if (
+            self.env.in_bounds(next_pos)
+            and not self.env.is_wall(next_pos)
+            and not self.env.is_agent(next_pos)
+        ):
+            self.pos = next_pos
+            return
+
+        # Try all other directions
+        for action in range(len(ACTIONS)):
+            adr, adc = ACTIONS[action]
+            potential_pos = (self.pos[0] + adr, self.pos[1] + adc)
+
+            if (
+                not self.env.in_bounds(potential_pos)
+                or self.env.is_wall(potential_pos)
+                or self.env.is_agent(potential_pos)
+            ):
+                continue
+
+            self.pos = potential_pos
+            self.facing_direction = action
+
+            return
 
 
 @dataclass
 class GridConfig:
     n_rows: int = 5
     n_cols: int = 5
-    start: tuple = (0, 0)
-    goal: tuple = (4, 4)
-    obstacles: tuple = ((1, 1), (2, 2), (3, 3))
-    hazards: tuple = ((1, 3), (3, 1))
+    start: AgentPos = (0, 0)
+    goals: tuple[AgentPos, ...] = ((4, 4),)
+    walls: tuple[AgentPos, ...] = ((1, 1), (2, 2), (3, 3))
+    guards: tuple[GuardState, ...] = ()
+    hazards: tuple[AgentPos, ...] = ()
     reward_goal: float = 10.0
     reward_trap: float = -10.0
     reward_step: float = -0.1
@@ -61,7 +115,7 @@ class GridConfigFactory:
             n_cols=n_cols,
             start=context.start,
             goal=context.goal,
-            obstacles=context.obstacles,
+            walls=context.obstacles,
             hazards=context.hazards,
             reward_goal=10.0,
             reward_trap=-10.0,
