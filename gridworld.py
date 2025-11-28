@@ -37,11 +37,11 @@ class GridConfigFactory:
     class GridContext:
         n_rows: int
         n_cols: int
-        start: tuple
-        goal: tuple
-        path: list
-        obstacles: list
-        hazards: list
+        start: AgentPos
+        goal: AgentPos
+        path: list[AgentPos]
+        walls: list[AgentPos]
+        guards: list[GuardState]
         rng: random.Random
 
     def __new__(cls: type, *args: object, **kwargs: object) -> NoReturn:
@@ -56,29 +56,31 @@ class GridConfigFactory:
         context = cls.GridContext(
             n_rows=n_rows,
             n_cols=n_cols,
-            start=(),
-            goal=(),
+            start=(0, 0),
+            goal=(0, 0),
             path=[],
-            obstacles=[],
-            hazards=[],
+            walls=[],
+            guards=[],
             rng=random.Random(seed),
         )
 
         cls._select_start_goal(context)
         cls._generate_simple_path(context)
-        cls._generate_random_obstacles(context)
-        cls._generate_hazards(context)
+        cls._generate_random_walls(context)
+        cls._generate_random_guards(context)
 
         return GridConfig(
             n_rows=n_rows,
             n_cols=n_cols,
             start=context.start,
-            goal=context.goal,
-            walls=context.obstacles,
-            hazards=context.hazards,
+            goals=(context.goal,),
+            walls=tuple(context.walls),
+            guards=tuple(context.guards),
             reward_goal=10.0,
-            reward_trap=-10.0,
-            reward_step=-0.1,
+            penalty_if_caught=-10.0,
+            penalty_step=-0.1,
+            terminate_on_completion=True,
+            terminate_if_caught=True,
         )
 
     @classmethod
@@ -111,7 +113,7 @@ class GridConfigFactory:
         context.path = path
 
     @staticmethod
-    def _next_step(current: tuple, goal: tuple, rng: random.Random) -> tuple:
+    def _next_step(current: AgentPos, goal: AgentPos, rng: random.Random) -> AgentPos:
         row_step = 0
         col_step = 0
 
@@ -126,6 +128,7 @@ class GridConfigFactory:
             col_step = -1
 
         if row_step != 0 and col_step != 0:
+            # Randomly choose whether to move row-wise or column-wise
             if rng.random() < 0.5:
                 return (current[0] + row_step, current[1])
             else:
@@ -138,52 +141,54 @@ class GridConfigFactory:
         return current
 
     @classmethod
-    def _generate_hazards(cls: type, context: GridContext) -> None:
+    def _generate_random_walls(cls: type, context: GridContext) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
         goal = context.goal
         path = context.path
-        obstacles = context.obstacles
-        hazards = context.hazards
+        walls = context.walls
+        rng = context.rng
 
-        for _ in range(context.rng.randint(0, (n_rows * n_cols) // 10)):
-            hazard = (
-                context.rng.randint(0, n_rows - 1),
-                context.rng.randint(0, n_cols - 1),
-            )
+        # Up to 20% of the grid as walls
+        max_walls = (n_rows * n_cols) // 5
+        n_walls = rng.randint(0, max_walls)
+
+        for _ in range(n_walls):
+            wall = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
 
             if (
-                hazard != start
-                and hazard != goal
-                and hazard not in obstacles
-                and hazard not in path
-                and hazard not in hazards
+                wall != start
+                and wall != goal
+                and wall not in path
+                and wall not in walls
             ):
-                hazards.append(hazard)
+                walls.append(wall)
 
     @classmethod
-    def _generate_random_obstacles(cls: type, context: GridContext) -> None:
+    def _generate_random_guards(cls: type, context: GridContext) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
         goal = context.goal
         path = context.path
-        obstacles = context.obstacles
-        hazards = context.hazards
+        walls = context.walls
+        guards = context.guards
+        rng = context.rng
 
-        for _ in range(context.rng.randint(0, (n_rows * n_cols) // 5)):
-            obstacle = (
-                context.rng.randint(0, n_rows - 1),
-                context.rng.randint(0, n_cols - 1),
-            )
+        # Choose a small number of guards
+        max_guards = max(1, (n_rows * n_cols) // 15)
+        n_guards = rng.randint(1, max_guards)
+
+        for _ in range(n_guards):
+            guard_pos = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
 
             if (
-                obstacle != start
-                and obstacle != goal
-                and obstacle not in hazards
-                and obstacle not in path
-                and obstacle not in obstacles
+                guard_pos != start
+                and guard_pos != goal
+                and guard_pos not in path
+                and guard_pos not in walls
+                and guard_pos not in [g[0] for g in guards]
             ):
                 facing = rng.randint(0, len(ACTIONS) - 1)
                 guards.append((guard_pos, facing))
