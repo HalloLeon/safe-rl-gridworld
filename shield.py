@@ -30,9 +30,7 @@ class SafetyShield:
 
         # Try all other actions, collect safe ones
         safe_actions = [
-            a
-            for a in range(len(ACTIONS))
-            if self.is_action_safe(mdp_state, a)
+            a for a in range(len(ACTIONS)) if self.is_action_safe(mdp_state, a)
         ]
 
         if safe_actions:
@@ -47,9 +45,9 @@ class SafetyShield:
         return action
 
     def is_action_safe(self, mdp_state: MDPState, action: int) -> bool:
-        next_mdp_state = self.env.peek_step(mdp_state, action)
-        next_label = self.env.compute_label(next_mdp_state)
-        next_dfa_state = self.dfa.peek_next((next_label, action))
+        next_mdp_state = self.peek_mdp_step(mdp_state, action)
+        next_label = self.compute_mdp_label(next_mdp_state)
+        next_dfa_state = self.dfa.peek_next(self.dfa.cur_state, (next_label, action))
 
         # Long-term safety via winning region
         # (avoid states from which safety cannot be guaranteed)
