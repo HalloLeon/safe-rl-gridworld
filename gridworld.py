@@ -229,15 +229,47 @@ class GridConfigFactory:
 
 
 class GridWorld:
-    ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
+    ACTIONS = ACTIONS  # up, down, left, right
 
-    def __init__(self, config: GridConfig):
+    def __init__(
+        self,
+        config: GridConfig,
+        shield: Optional[SafetyShield] = None,
+        rng: Optional[random.Random] = None,
+    ):
         self.config = config
-        self.state = config.start
-        self.done = False
+        self.shield = shield
+        self.rng = rng if rng is not None else random.Random()
 
-    def in_bounds(self, state: tuple) -> bool:
-        return 0 <= state[0] < self.config.n_rows and 0 <= state[1] < self.config.n_cols
+        # Initialize guards as objects
+        self.guards = self._init_guards()
+
+        # Current agent position
+        self.agent_pos = self.config.start
+
+        # Track remaining goals as a list
+        self.goals = list(self.config.goals)
+
+        # Build the initial MDP state
+        self.cur_state = self._build_mdp_state(self.agent_pos)
+        self.initial_state = self.cur_state
+
+        self.done: bool = False
+
+    def _init_guards(self) -> list[Guard]:
+        guards = []
+
+        for guard_pos, facing_direction in self.config.guards:
+            guards.append(Guard(guard_pos, facing_direction, self))
+
+        return guards
+
+    def _build_mdp_state(self, agent_pos: AgentPos) -> MDPState:
+        guard_states = tuple((g.pos, g.facing_direction) for g in self.guards)
+        return (agent_pos, guard_states)
+
+    def in_bounds(self, pos: AgentPos) -> bool:
+        return 0 <= pos[0] < self.config.n_rows and 0 <= pos[1] < self.config.n_cols
 
     def is_goal(self, state: tuple) -> bool:
         return state == self.config.goal
