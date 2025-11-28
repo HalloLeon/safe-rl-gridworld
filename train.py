@@ -1,18 +1,28 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 from agent import QLearningAgent
+from common.constants import ACTIONS
+from common.types import Action
+from common.types import Label
 from gridworld import GridWorld
 from gridworld import GridConfigFactory
+from shield import SafetyShield
+from shield_synthesis.automaton.dfa import build_simple_dfa
+from shield_synthesis.safety_game import SafetyGameSolver
 
 
-def run_episode(env, agent, max_steps=100):
+def run_episode(
+    env: GridWorld, agent: QLearningAgent, max_steps: int = 100
+) -> tuple[float, dict, int]:
     state = env.reset()
     total_reward = 0
 
     for step in range(max_steps):
         action = agent.get_action(state)
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, done, info = env.next_step(action)
         agent.update_q_value(state, action, reward, next_state)
         total_reward += reward
         state = next_state
