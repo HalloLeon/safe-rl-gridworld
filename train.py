@@ -85,12 +85,12 @@ def rolling_avg(x: list[int], window: int = 25):
     return avg
 
 
-def train_baseline():
+def train_baseline(n_episodes: int = 500) -> None:
     config = GridConfigFactory.random_config(n_rows=8, n_cols=8)
     env = GridWorld(config)
 
     n_states = config.n_rows * config.n_cols
-    n_actions = len(GridWorld.ACTIONS)
+    n_actions = len(ACTIONS)
 
     agent = QLearningAgent(
         n_states=n_states,
@@ -103,40 +103,108 @@ def train_baseline():
         seed=0,
     )
 
-    n_episodes = 1000
     rewards = []
     steps = []
-    unsafe_flags = []
+    unsafe_flags = []  # 1 if caught in this episode, else 0
 
     for _ in range(n_episodes):
         total_reward, info, total_steps = run_episode(env, agent)
         rewards.append(total_reward)
-        unsafe_flags.append(info["hazard"])
         steps.append(total_steps)
 
     rolling_window = 25
 
+    os.makedirs("plots", exist_ok=True)
+
+    # Plot average reward
     plt.figure()
     plt.plot(rolling_avg(rewards, rolling_window))
     plt.title(f"Average Reward without Shield (rolling window={rolling_window})")
     plt.xlabel("Episode")
     plt.ylabel("Reward")
-    plt.savefig("plots/reward.png", dpi=150)
+    plt.tight_layout()
+    plt.savefig("plots/reward_unshielded.png", dpi=150)
 
+    # Plot fraction of episodes where the agent was caught
     plt.figure()
-    plt.plot(rolling_sum(unsafe_flags, rolling_window))
-    plt.title(f"Unsafe Episodes Fraction (rolling window={rolling_window})")
+    plt.plot(rolling_avg(unsafe_flags, rolling_window))
+    plt.title(
+        f"Fraction of Episodes Caught without Shield (rolling window={rolling_window})"
+    )
+    plt.xlabel("Episode")
+    plt.ylabel("Fraction caught")
+    plt.tight_layout()
+    plt.savefig("plots/unsafe_unshielded.png", dpi=150)
+
+    # Plot average number of steps per episode
+    plt.figure()
+    plt.plot(rolling_avg(steps, rolling_window))
+    plt.title(f"Average Steps without Shield (rolling window={rolling_window})")
     plt.xlabel("Episode")
     plt.ylabel("Steps")
-    plt.savefig("plots/unsafe.png", dpi=150)
+    plt.tight_layout()
+    plt.savefig("plots/steps_unshielded.png", dpi=150)
 
+
+def train_shielded(n_episodes: int = 500) -> None:
+    env, config = build_shielded_env()
+
+    n_states = config.n_rows * config.n_cols
+    n_actions = len(ACTIONS)
+
+    agent = QLearningAgent(
+        n_states=n_states,
+        n_actions=n_actions,
+        learning_rate=0.1,
+        discount_factor=0.95,
+        exploration_rate=1.0,
+        exploration_decay=0.995,
+        min_exploration_rate=0.01,
+        seed=0,
+    )
+
+    rewards = []
+    steps = []
+    unsafe_flags = []  # 1 if caught in this episode, else 0
+
+    for _ in range(n_episodes):
+        total_reward, info, total_steps = run_episode(env, agent)
+        rewards.append(total_reward)
+        steps.append(total_steps)
+        unsafe_flags.append(1 if info.get("caught", False) else 0)
+
+    rolling_window = 25
+
+    os.makedirs("plots", exist_ok=True)
+
+    # Plot average reward
     plt.figure()
-    plt.plot(rolling_sum(steps, rolling_window))
-    plt.title(f"Average Steps (rolling window={rolling_window})")
+    plt.plot(rolling_avg(rewards, rolling_window))
+    plt.title(f"Average Reward with Shield (rolling window={rolling_window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Reward")
+    plt.tight_layout()
+    plt.savefig("plots/reward_shielded.png", dpi=150)
+
+    # Plot fraction of episodes where the agent was caught
+    plt.figure()
+    plt.plot(rolling_avg(unsafe_flags, rolling_window))
+    plt.title(f"Fraction of Episodes Caught (rolling window={rolling_window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Fraction caught")
+    plt.tight_layout()
+    plt.savefig("plots/unsafe_shielded.png", dpi=150)
+
+    # Plot average number of steps per episode
+    plt.figure()
+    plt.plot(rolling_avg(steps, rolling_window))
+    plt.title(f"Average Steps with Shield (rolling window={rolling_window})")
     plt.xlabel("Episode")
     plt.ylabel("Steps")
-    plt.savefig("plots/steps.png", dpi=150)
+    plt.tight_layout()
+    plt.savefig("plots/steps_shielded.png", dpi=150)
 
 
 if __name__ == "__main__":
-    train_baseline()
+    train_baseline(n_episodes=200)
+    train_shielded(n_episodes=200)
