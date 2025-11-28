@@ -3,18 +3,13 @@ import random
 from typing import NoReturn
 from typing import Optional
 
+from common.constants import ACTIONS
+from common.types import AgentPos
+from common.types import FacingDirection
+from common.types import GuardPos
+from common.types import GuardState
+from common.types import MDPState
 from shield import SafetyShield
-
-
-AgentPos = tuple[int, int]
-GuardPos = tuple[int, int]
-FacingDirection = int  # 0: up, 1: down, 2: left, 3: right
-GuardState = tuple[GuardPos, FacingDirection]
-MDPState = tuple[
-    AgentPos, tuple[GuardState, ...]
-]  # MDPState: (agent_pos, tuple of (guard_pos, facing) for each guard)
-
-ACTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # up, down, left, right
 
 
 @dataclass
@@ -235,8 +230,6 @@ class Guard:
 
 
 class GridWorld:
-    ACTIONS = ACTIONS  # up, down, left, right
-
     def __init__(
         self,
         config: GridConfig,

@@ -1,9 +1,6 @@
-from shield_synthesis.safety_game import Action
-from shield_synthesis.safety_game import DFA
-from shield_synthesis.safety_game import Label
-
-
-DFAState = int
+from common.types import Action
+from common.types import DFAState
+from common.types import Label
 
 
 class DFA:
