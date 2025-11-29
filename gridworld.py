@@ -204,12 +204,13 @@ class Guard:
         # Use peek_step with the current env agent position,
         # then mutate self.pos and self.facing_direction.
 
-        new_pos, new_facing_direction = self.peek_step(self.env.agent_pos)
+        other_guards = {g.pos for g in self.env.guards if g.pos != self.pos}
+        new_pos, new_facing_direction = self.peek_step(self.env.agent_pos, other_guards)
         self.pos = new_pos
         self.facing_direction = new_facing_direction
 
-    def peek_step(self, agent_pos: AgentPos) -> GuardState:
-        # Given the agent position, compute (next_pos, next_facing)
+    def peek_step(self, agent_pos: AgentPos, other_guards: set[GuardPos]) -> GuardState:
+        # Pure simulation: Given the agent position, compute (next_pos, next_facing)
         # without changing this Guard object.
 
         dr, dc = ACTIONS[self.facing_direction]
@@ -219,6 +220,7 @@ class Guard:
             self.env.in_bounds(next_pos)
             and not self.env.is_wall(next_pos)
             and next_pos != agent_pos
+            and next_pos not in other_guards
         ):
             return next_pos, self.facing_direction
 
@@ -231,6 +233,7 @@ class Guard:
                 not self.env.in_bounds(potential_pos)
                 or self.env.is_wall(potential_pos)
                 or potential_pos == agent_pos
+                or potential_pos in other_guards
             ):
                 continue
 
@@ -308,7 +311,7 @@ class GridWorld:
     def _is_visible_from_guard(
         self, agent_pos: AgentPos, guard_pos: GuardPos, facing: FacingDirection
     ) -> bool:
-        # Simple FOV: straight ray in facing direction up to VISION_RANGE,
+        # Simple FOV: Straight ray in facing direction up to VISION_RANGE,
         # blocked by walls.
 
         dr, dc = ACTIONS[facing]
@@ -425,8 +428,9 @@ class GridWorld:
         return self.mdp_state_to_index(self.cur_state), reward, self.done, info
 
     def peek_step(self, mdp_state: MDPState, action: int) -> MDPState:
-        # Pure simulation: given an arbitrary MDP state and action,
+        # Pure simulation: Given an arbitrary MDP state and action,
         # return the next MDP state (agent + guards) without side effects.
+        # Guards also avoid colliding with each other.
 
         agent_pos, guard_states = mdp_state
 
@@ -435,10 +439,19 @@ class GridWorld:
 
         # Simulate guards based on new agent position
         new_guard_states = []
+        original_positions = [g_pos for (g_pos, _) in guard_states]
 
-        for g_pos, facing_direction in guard_states:
+        for idx, (g_pos, facing_direction) in enumerate(guard_states):
+            # Other guards' positions are:
+            #   - all original positions except this guard's
+            #   - all new positions already assigned earlier in this loop
+            other_guards = set(original_positions[:idx] + original_positions[idx + 1 :])
+            other_guards.update(pos for (pos, _) in new_guard_states)
+
             tmp_guard = Guard(g_pos, facing_direction, self)
-            ng_pos, ng_facing_direction = tmp_guard.peek_step(new_agent_pos)
+            ng_pos, ng_facing_direction = tmp_guard.peek_step(
+                new_agent_pos, other_guards
+            )
             new_guard_states.append((ng_pos, ng_facing_direction))
 
         return (new_agent_pos, tuple(new_guard_states))
