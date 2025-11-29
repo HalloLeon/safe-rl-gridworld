@@ -424,6 +424,25 @@ class GridWorld:
 
         return self.mdp_state_to_index(self.cur_state), reward, self.done, info
 
+    def peek_step(self, mdp_state: MDPState, action: int) -> MDPState:
+        # Pure simulation: given an arbitrary MDP state and action,
+        # return the next MDP state (agent + guards) without side effects.
+
+        agent_pos, guard_states = mdp_state
+
+        # Simulate agent
+        new_agent_pos = self._next_agent_pos(agent_pos, action)
+
+        # Simulate guards based on new agent position
+        new_guard_states = []
+
+        for g_pos, facing_direction in guard_states:
+            tmp_guard = Guard(g_pos, facing_direction, self)
+            ng_pos, ng_facing_direction = tmp_guard.peek_step(new_agent_pos)
+            new_guard_states.append((ng_pos, ng_facing_direction))
+
+        return (new_agent_pos, tuple(new_guard_states))
+
     def _select_action(self, action: int) -> int:
         # Simple fallback action selection when no shield is provided:
         # - if proposed action leads to a valid cell, keep it;
@@ -448,29 +467,19 @@ class GridWorld:
         return action
 
     def _next_agent_pos(self, agent_pos: AgentPos, action: int) -> AgentPos:
+        # Compute the agent's next position given an action.
+
+        # Only grid bounds are treated as hard constraints here.
+        # Wall cells are not blocked at the dynamics level – they are
+        # handled as 'unsafe' by the safety spec / shield (via labels/DFA),
+        # or avoided by the fallback _select_action policy in the
+        # unshielded baseline.
+
         dr, dc = ACTIONS[action]
         new_pos = (agent_pos[0] + dr, agent_pos[1] + dc)
 
-        if not self.in_bounds(new_pos) or self.is_wall(new_pos):
-            return agent_pos  # Bump into wall / out-of-bounds -> stay
+        # Only enforce grid bounds here; walls are modeled via labels / DFA
+        if not self.in_bounds(new_pos):
+            return agent_pos  # bump into border -> stay
 
         return new_pos
-
-    def peek_step(self, mdp_state: MDPState, action: int) -> MDPState:
-        # Pure simulation: given an arbitrary MDP state and action,
-        # return the next MDP state (agent + guards) without side effects.
-
-        agent_pos, guard_states = mdp_state
-
-        # Simulate agent
-        new_agent_pos = self._next_agent_pos(agent_pos, action)
-
-        # Simulate guards based on new agent position
-        new_guard_states = []
-
-        for g_pos, facing_direction in guard_states:
-            tmp_guard = Guard(g_pos, facing_direction, self)
-            ng_pos, ng_facing_direction = tmp_guard.peek_step(new_agent_pos)
-            new_guard_states.append((ng_pos, ng_facing_direction))
-
-        return (new_agent_pos, tuple(new_guard_states))
