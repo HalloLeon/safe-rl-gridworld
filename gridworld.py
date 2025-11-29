@@ -5,9 +5,8 @@ from typing import Optional
 
 from common.constants import ACTIONS
 from common.constants import DIRECTIONS
-from common.types import AgentPos
+from common.types import Pos
 from common.types import FacingDirection
-from common.types import GuardPos
 from common.types import GuardState
 from common.types import MDPState
 from shield import SafetyShield
@@ -17,9 +16,9 @@ from shield import SafetyShield
 class GridConfig:
     n_rows: int = 5
     n_cols: int = 5
-    start: AgentPos = (0, 0)
-    goals: tuple[AgentPos, ...] = ((4, 4),)
-    walls: tuple[AgentPos, ...] = ((1, 1), (2, 2), (3, 3))
+    start: Pos = (0, 0)
+    goals: tuple[Pos, ...] = ((4, 4),)
+    walls: tuple[Pos, ...] = ((1, 1), (2, 2), (3, 3))
     guards: tuple[GuardState, ...] = ()
     reward_goal: float = 10.0
     penalty_if_caught: float = -10.0
@@ -33,10 +32,10 @@ class GridConfigFactory:
     class GridContext:
         n_rows: int
         n_cols: int
-        start: AgentPos
-        goal: AgentPos
-        path: list[AgentPos]
-        walls: list[AgentPos]
+        start: Pos
+        goal: Pos
+        path: list[Pos]
+        walls: list[Pos]
         guards: list[GuardState]
         rng: random.Random
 
@@ -109,7 +108,7 @@ class GridConfigFactory:
         context.path = path
 
     @staticmethod
-    def _next_step(current: AgentPos, goal: AgentPos, rng: random.Random) -> AgentPos:
+    def _next_step(current: Pos, goal: Pos, rng: random.Random) -> Pos:
         row_step = 0
         col_step = 0
 
@@ -193,9 +192,7 @@ class GridConfigFactory:
 class Guard:
     VISION_RANGE = 3
 
-    def __init__(
-        self, env: "GridWorld", pos: GuardPos, facing_direction: FacingDirection
-    ):
+    def __init__(self, env: "GridWorld", pos: Pos, facing_direction: FacingDirection):
         self.env = env
         self.pos = pos
         self.facing_direction = facing_direction
@@ -203,7 +200,7 @@ class Guard:
     @staticmethod
     def peek_step(
         env: "GridWorld",
-        cur_pos: GuardPos,
+        cur_pos: Pos,
         facing: FacingDirection,
         agent_pos: AgentPos,
         other_guards: set[GuardPos],
@@ -294,20 +291,20 @@ class GridWorld:
 
         return guards
 
-    def _build_mdp_state(self, agent_pos: AgentPos) -> MDPState:
+    def _build_mdp_state(self, agent_pos: Pos) -> MDPState:
         guard_states = tuple((g.pos, g.facing_direction) for g in self.guards)
         return (agent_pos, guard_states)
 
-    def in_bounds(self, pos: AgentPos) -> bool:
+    def in_bounds(self, pos: Pos) -> bool:
         return 0 <= pos[0] < self.config.n_rows and 0 <= pos[1] < self.config.n_cols
 
-    def is_wall(self, pos: AgentPos) -> bool:
+    def is_wall(self, pos: Pos) -> bool:
         return pos in self.config.walls
 
-    def is_goal_pos(self, pos: AgentPos) -> bool:
+    def is_goal_pos(self, pos: Pos) -> bool:
         return pos in self.config.goals
 
-    def is_agent(self, pos: AgentPos) -> bool:
+    def is_agent(self, pos: Pos) -> bool:
         return self.agent_pos == pos
 
     def is_caught(self, mdp_state: MDPState) -> bool:
@@ -323,7 +320,7 @@ class GridWorld:
         return False
 
     def _is_visible_from_guard(
-        self, agent_pos: AgentPos, guard_pos: GuardPos, facing: FacingDirection
+        self, agent_pos: Pos, guard_pos: Pos, facing: FacingDirection
     ) -> bool:
         # Simple FOV: Straight ray in facing direction up to VISION_RANGE,
         # blocked by walls.
@@ -355,7 +352,6 @@ class GridWorld:
 
     def compute_label(self, mdp_state: MDPState) -> int:
         # Label encoding for DFA / shield:
-
         #    0 = SAFE
         #    1 = WALL      (on a wall cell)
         #    2 = VISIBLE   (seen by guard or sharing cell with guard)
@@ -384,7 +380,6 @@ class GridWorld:
 
     def next_step(self, action: int):
         # Standard step function:
-
         # - optional shield to filter the proposed action
         # - update agent position
         # - move guards
@@ -496,7 +491,7 @@ class GridWorld:
         # No safe alternative found -> fall back to original
         return action
 
-    def _next_agent_pos(self, agent_pos: AgentPos, action: int) -> AgentPos:
+    def _next_agent_pos(self, agent_pos: Pos, action: int) -> Pos:
         # Compute the agent's next position given an action.
 
         # Only grid bounds are treated as hard constraints here.
