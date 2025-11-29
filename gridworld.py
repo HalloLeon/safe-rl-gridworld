@@ -194,56 +194,70 @@ class Guard:
     VISION_RANGE = 3
 
     def __init__(
-        self, pos: GuardPos, facing_direction: FacingDirection, env: "GridWorld"
+        self, env: "GridWorld", pos: GuardPos, facing_direction: FacingDirection
     ):
+        self.env = env
         self.pos = pos
         self.facing_direction = facing_direction
-        self.env = env
+
+    @staticmethod
+    def peek_step(
+        env: "GridWorld",
+        cur_pos: GuardPos,
+        facing: FacingDirection,
+        agent_pos: AgentPos,
+        other_guards: set[GuardPos],
+    ) -> GuardState:
+        # Pure guard movement logic that avoids:
+        #   - walls
+        #   - the agent
+        #   - other guards' positions
+
+        # Try to move forward in current facing direction
+        dr, dc = ACTIONS[facing]
+        next_pos = (cur_pos[0] + dr, cur_pos[1] + dc)
+
+        if (
+            env.in_bounds(next_pos)
+            and not env.is_wall(next_pos)
+            and next_pos != agent_pos
+            and next_pos not in other_guards
+        ):
+            return next_pos, facing
+
+        # Try all other actions
+        for action in range(len(ACTIONS)):
+            adr, adc = ACTIONS[action]
+            potential_pos = (cur_pos[0] + adr, cur_pos[1] + adc)
+
+            if (
+                not env.in_bounds(potential_pos)
+                or env.is_wall(potential_pos)
+                or potential_pos == agent_pos
+                or potential_pos in other_guards
+            ):
+                continue
+
+            # If this is a real direction (UP/DOWN/LEFT/RIGHT), update facing
+            if action < len(DIRECTIONS):
+                return potential_pos, action
+            else:
+                # e.g. STAY action: keep facing
+                return potential_pos, facing
+
+        # No move possible -> stay in place
+        return cur_pos, facing
 
     def next_step(self) -> None:
         # Use peek_step with the current env agent position,
         # then mutate self.pos and self.facing_direction.
 
         other_guards = {g.pos for g in self.env.guards if g.pos != self.pos}
-        new_pos, new_facing_direction = self.peek_step(self.env.agent_pos, other_guards)
+        new_pos, new_facing_direction = Guard.peek_step(
+            self.env, self.pos, self.facing_direction, self.env.agent_pos, other_guards
+        )
         self.pos = new_pos
         self.facing_direction = new_facing_direction
-
-    def peek_step(self, agent_pos: AgentPos, other_guards: set[GuardPos]) -> GuardState:
-        # Pure simulation: Given the agent position, compute (next_pos, next_facing)
-        # without changing this Guard object.
-
-        dr, dc = ACTIONS[self.facing_direction]
-        next_pos = (self.pos[0] + dr, self.pos[1] + dc)
-
-        if (
-            self.env.in_bounds(next_pos)
-            and not self.env.is_wall(next_pos)
-            and next_pos != agent_pos
-            and next_pos not in other_guards
-        ):
-            return next_pos, self.facing_direction
-
-        # Try all other directions
-        for action in range(len(ACTIONS)):
-            adr, adc = ACTIONS[action]
-            potential_pos = (self.pos[0] + adr, self.pos[1] + adc)
-
-            if (
-                not self.env.in_bounds(potential_pos)
-                or self.env.is_wall(potential_pos)
-                or potential_pos == agent_pos
-                or potential_pos in other_guards
-            ):
-                continue
-
-            if action < len(DIRECTIONS):
-                return potential_pos, action
-            else:
-                return potential_pos, self.facing_direction
-
-        # No move possible -> stay in place
-        return self.pos, self.facing_direction
 
 
 class GridWorld:
@@ -276,7 +290,7 @@ class GridWorld:
         guards = []
 
         for guard_pos, facing_direction in self.config.guards:
-            guards.append(Guard(guard_pos, facing_direction, self))
+            guards.append(Guard(self, guard_pos, facing_direction))
 
         return guards
 
@@ -448,9 +462,12 @@ class GridWorld:
             other_guards = set(original_positions[:idx] + original_positions[idx + 1 :])
             other_guards.update(pos for (pos, _) in new_guard_states)
 
-            tmp_guard = Guard(g_pos, facing_direction, self)
-            ng_pos, ng_facing_direction = tmp_guard.peek_step(
-                new_agent_pos, other_guards
+            ng_pos, ng_facing_direction = Guard.peek_step(
+                self,
+                g_pos,
+                facing_direction,
+                new_agent_pos,
+                other_guards,
             )
             new_guard_states.append((ng_pos, ng_facing_direction))
 
