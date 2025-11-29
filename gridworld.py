@@ -200,17 +200,27 @@ class Guard:
         self.facing_direction = facing_direction
         self.env = env
 
-    def next_step(self):
+    def next_step(self) -> None:
+        # Use peek_step with the current env agent position,
+        # then mutate self.pos and self.facing_direction.
+
+        new_pos, new_facing_direction = self.peek_step(self.env.agent_pos)
+        self.pos = new_pos
+        self.facing_direction = new_facing_direction
+
+    def peek_step(self, agent_pos: AgentPos) -> GuardState:
+        # Given the agent position, compute (next_pos, next_facing)
+        # without changing this Guard object.
+
         dr, dc = ACTIONS[self.facing_direction]
         next_pos = (self.pos[0] + dr, self.pos[1] + dc)
 
         if (
             self.env.in_bounds(next_pos)
             and not self.env.is_wall(next_pos)
-            and not self.env.is_agent(next_pos)
+            and next_pos != agent_pos
         ):
-            self.pos = next_pos
-            return
+            return next_pos, self.facing_direction
 
         # Try all other directions
         for action in range(len(ACTIONS)):
@@ -220,14 +230,17 @@ class Guard:
             if (
                 not self.env.in_bounds(potential_pos)
                 or self.env.is_wall(potential_pos)
-                or self.env.is_agent(potential_pos)
+                or potential_pos == agent_pos
             ):
                 continue
 
-            self.pos = potential_pos
-            self.facing_direction = action
+            if action < len(DIRECTIONS):
+                return potential_pos, action
+            else:
+                return potential_pos, self.facing_direction
 
-            return
+        # No move possible -> stay in place
+        return self.pos, self.facing_direction
 
 
 class GridWorld:
@@ -461,32 +474,3 @@ class GridWorld:
             new_guard_states.append((ng_pos, ng_facing_direction))
 
         return (new_agent_pos, tuple(new_guard_states))
-
-    def _simulate_guard_step(
-        self, guard_pos: GuardPos, facing: FacingDirection, agent_pos: AgentPos
-    ) -> GuardState:
-        dr, dc = ACTIONS[facing]
-        next_pos = (guard_pos[0] + dr, guard_pos[1] + dc)
-        if (
-            self.in_bounds(next_pos)
-            and not self.is_wall(next_pos)
-            and next_pos != agent_pos
-        ):
-            return next_pos, facing
-
-        # Try all other directions
-        for a in range(len(ACTIONS)):
-            adr, adc = ACTIONS[a]
-            potential_pos = (guard_pos[0] + adr, guard_pos[1] + adc)
-
-            if (
-                not self.in_bounds(potential_pos)
-                or self.is_wall(potential_pos)
-                or potential_pos == agent_pos
-            ):
-                continue
-
-            return potential_pos, a
-
-        # No move possible
-        return guard_pos, facing
