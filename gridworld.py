@@ -32,6 +32,7 @@ class GridConfigFactory:
     class GridContext:
         n_rows: int
         n_cols: int
+        n_guards: int
         start: Pos
         goal: Pos
         path: list[Pos]
@@ -39,18 +40,27 @@ class GridConfigFactory:
         guards: list[GuardState]
         rng: random.Random
 
-    def __new__(cls: type, *args: object, **kwargs: object) -> NoReturn:
+    def __new__(
+        cls: type["GridConfigFactory"], *args: object, **kwargs: object
+    ) -> NoReturn:
         raise TypeError("GridConfigFactory is not instantiable.")
 
     @classmethod
-    def default_config(cls: type) -> GridConfig:
+    def default_config(cls: type["GridConfigFactory"]) -> GridConfig:
         return GridConfig()
 
     @classmethod
-    def random_config(cls: type, n_rows: int, n_cols: int, seed: int = 0) -> GridConfig:
+    def random_config(
+        cls: type["GridConfigFactory"],
+        n_rows: int,
+        n_cols: int,
+        n_guards: int = 1,
+        seed: int = 0,
+    ) -> GridConfig:
         context = cls.GridContext(
             n_rows=n_rows,
             n_cols=n_cols,
+            n_guards=n_guards,
             start=(0, 0),
             goal=(0, 0),
             path=[],
@@ -78,8 +88,10 @@ class GridConfigFactory:
             terminate_if_caught=True,
         )
 
-    @classmethod
-    def _select_start_goal(cls: type, context: GridContext) -> None:
+    @staticmethod
+    def _select_start_goal(
+        cls: type["GridConfigFactory"], context: GridContext
+    ) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         rng = context.rng
@@ -93,8 +105,8 @@ class GridConfigFactory:
         context.start = start
         context.goal = goal
 
-    @classmethod
-    def _generate_simple_path(cls: type, context: GridContext) -> None:
+    @staticmethod
+    def _generate_simple_path(context: GridContext) -> None:
         start = context.start
         goal = context.goal
 
@@ -102,7 +114,7 @@ class GridConfigFactory:
         current = start
 
         while current != goal:
-            current = cls._next_step(current, goal, context.rng)
+            current = GridConfigFactory._next_step(current, goal, context.rng)
             path.append(current)
 
         context.path = path
@@ -135,8 +147,8 @@ class GridConfigFactory:
 
         return current
 
-    @classmethod
-    def _generate_random_walls(cls: type, context: GridContext) -> None:
+    @staticmethod
+    def _generate_random_walls(context: GridContext) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
@@ -160,8 +172,8 @@ class GridConfigFactory:
             ):
                 walls.append(wall)
 
-    @classmethod
-    def _generate_random_guards(cls: type, context: GridContext) -> None:
+    @staticmethod
+    def _generate_random_guards(context: GridContext) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
@@ -171,9 +183,7 @@ class GridConfigFactory:
         guards = context.guards
         rng = context.rng
 
-        # Choose a small number of guards
-        max_guards = max(1, (n_rows * n_cols) // 15)
-        n_guards = rng.randint(1, max_guards)
+        n_guards = context.n_guards
 
         for _ in range(n_guards):
             guard_pos = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
