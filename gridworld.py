@@ -4,6 +4,7 @@ from typing import NoReturn
 from typing import Optional
 
 from common.constants import ACTIONS
+from common.constants import DIRECTIONS
 from common.types import AgentPos
 from common.types import FacingDirection
 from common.types import GuardPos
@@ -185,8 +186,8 @@ class GridConfigFactory:
                 and guard_pos not in walls
                 and guard_pos not in [g[0] for g in guards]
             ):
-                facing = rng.randint(0, len(ACTIONS) - 1)
-                guards.append((guard_pos, facing))
+                facing_direction = rng.randint(0, len(DIRECTIONS) - 1)
+                guards.append((guard_pos, facing_direction))
 
 
 class Guard:
@@ -282,11 +283,11 @@ class GridWorld:
     def is_caught(self, mdp_state: MDPState) -> bool:
         agent_pos, guard_states = mdp_state
 
-        for g_pos, facing in guard_states:
+        for g_pos, facing_direction in guard_states:
             if g_pos == agent_pos:
                 return True
 
-            if self._is_visible_from_guard(agent_pos, g_pos, facing):
+            if self._is_visible_from_guard(agent_pos, g_pos, facing_direction):
                 return True
 
         return False
@@ -430,7 +431,7 @@ class GridWorld:
             if self.in_bounds(potential_pos) and not self.is_wall(potential_pos):
                 return a
 
-        # No safe alternative found -> Fall back to original
+        # No safe alternative found -> fall back to original
         return action
 
     def _next_agent_pos(self, agent_pos: AgentPos, action: int) -> AgentPos:
@@ -454,9 +455,10 @@ class GridWorld:
         # Simulate guards based on new agent position
         new_guard_states = []
 
-        for g_pos, facing in guard_states:
-            ng_pos, ng_facing = self._simulate_guard_step(g_pos, facing, new_agent_pos)
-            new_guard_states.append((ng_pos, ng_facing))
+        for g_pos, facing_direction in guard_states:
+            tmp_guard = Guard(g_pos, facing_direction, self)
+            ng_pos, ng_facing_direction = tmp_guard.peek_step(new_agent_pos)
+            new_guard_states.append((ng_pos, ng_facing_direction))
 
         return (new_agent_pos, tuple(new_guard_states))
 
