@@ -89,9 +89,7 @@ class GridConfigFactory:
         )
 
     @staticmethod
-    def _select_start_goal(
-        cls: type["GridConfigFactory"], context: GridContext
-    ) -> None:
+    def _select_start_goal(context: GridContext) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         rng = context.rng
