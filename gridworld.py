@@ -539,13 +539,13 @@ class GridWorld:
             action: Proposed agent action (index into `ACTIONS`).
 
         Returns:
-            out: A tuple `(, reward, done, info)` where:
-                    - next_state_idx: integer state index for the next agent position,
-                    - reward: scalar reward,
-                    - done: True if the episode terminated,
-                    - info: dict with flags:
-                        * "goal": True if a goal was reached this step,
-                        * "caught": True if the agent was caught this step.
+            (next_state_idx, reward, done, info):
+                - next_state_idx: Integer state index for the next agent position,
+                - reward: Scalar reward,
+                - done: True if the episode terminated,
+                - info: Dict with flags:
+                    * "goal": True if a goal was reached this step,
+                    * "caught": True if the agent was caught this step.
 
         Raises:
             RuntimeError: If the episode has already terminated and reset
