@@ -154,6 +154,9 @@ def build_shielded_env(config: GridConfig) -> tuple[GridWorld, GridConfigFactory
     initial_mdp_state = env.cur_state
     winning_region = solver.compute_winning_region(initial_mdp_state)
 
+    if (env.initial_state, dfa.initial) not in winning_region:
+        raise RuntimeError("Error: Initial state is not in the winning region!")
+
     # 4. Build shield and attach to env
     shield = SafetyShield(dfa, winning_region, env.peek_step, env.compute_label)
     env.shield = shield
