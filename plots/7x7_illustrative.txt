@@ -1,0 +1,14 @@
+Legend:
+S           start position
+G           goal cell
+#           wall
+^ v < >     guard, oriented up / down / left / right
+.           empty cell
+
+.  .  .  .  .  G  # 
+.  #  .  .  .  #  . 
+.  v  .  .  .  .  . 
+.  .  .  .  .  .  . 
+.  .  #  #  #  .  . 
+S  .  .  <  .  #  . 
+.  #  .  .  .  .  #
