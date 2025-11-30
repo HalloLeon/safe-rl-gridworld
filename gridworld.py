@@ -35,7 +35,6 @@ class GridConfigFactory:
     class GridContext:
         n_rows: int
         n_cols: int
-        n_guards: int
         start: Pos
         goals: list[Pos]
         path: list[Pos]
@@ -57,13 +56,13 @@ class GridConfigFactory:
         cls: type["GridConfigFactory"],
         n_rows: int,
         n_cols: int,
+        walls_fraction: float = 0.2,
         n_guards: int = 1,
         seed: int = 0,
     ) -> GridConfig:
         context = cls.GridContext(
             n_rows=n_rows,
             n_cols=n_cols,
-            n_guards=n_guards,
             start=(0, 0),
             goals=[],
             path=[],
@@ -74,8 +73,8 @@ class GridConfigFactory:
 
         cls._select_start_goal(context)
         cls._generate_simple_path(context)
-        cls._generate_random_walls(context)
-        cls._generate_random_guards(context)
+        cls._generate_random_walls(context, walls_fraction)
+        cls._generate_random_guards(context, n_guards)
 
         return GridConfig(
             n_rows=n_rows,
@@ -151,7 +150,7 @@ class GridConfigFactory:
         return current
 
     @staticmethod
-    def _generate_random_walls(context: GridContext) -> None:
+    def _generate_random_walls(context: GridContext, walls_fraction: float) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
@@ -160,11 +159,9 @@ class GridConfigFactory:
         walls = context.walls
         rng = context.rng
 
-        # Up to 20% of the grid as walls
-        max_walls = (n_rows * n_cols) // 5
-        n_walls = rng.randint(0, max_walls)
+        n_walls = int((n_rows * n_cols) * walls_fraction)
 
-        for _ in range(n_walls):
+        while n_walls > 0:
             wall = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
 
             if (
@@ -174,9 +171,11 @@ class GridConfigFactory:
                 and wall not in walls
             ):
                 walls.append(wall)
+                n_walls -= 1
+
 
     @staticmethod
-    def _generate_random_guards(context: GridContext) -> None:
+    def _generate_random_guards(context: GridContext, n_guards: int) -> None:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
@@ -186,9 +185,7 @@ class GridConfigFactory:
         guards = context.guards
         rng = context.rng
 
-        n_guards = context.n_guards
-
-        for _ in range(n_guards):
+        while n_guards > 0:
             guard_pos = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
 
             if (
@@ -200,6 +197,7 @@ class GridConfigFactory:
             ):
                 facing_direction = rng.randint(0, len(DIRECTIONS) - 1)
                 guards.append((guard_pos, facing_direction))
+                n_guards -= 1
 
 
 class Guard:
