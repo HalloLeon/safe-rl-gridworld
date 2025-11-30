@@ -1,6 +1,8 @@
 from collections import deque
 from typing import Callable
 
+
+from common.constants import VERBOSE
 from shield_synthesis.automaton.dfa import DFA
 from shield_synthesis.automaton.dfa import DFAState
 
@@ -30,7 +32,14 @@ class SafetyGameSolver:
         self, initial_mdp_state: MDPState
     ) -> set[tuple[MDPState, DFAState]]:
         reachable = self._compute_reachable_states(initial_mdp_state)
+
+        if VERBOSE:
+            print(f"Reachable states: {len(reachable)}")
+
         winning = self._compute_winning_states(reachable)
+
+        if VERBOSE:
+            print(f"Winning states: {len(winning)}")
 
         return winning
 
