@@ -5,10 +5,12 @@ from typing import Optional
 
 from common.constants import ACTIONS
 from common.constants import DIRECTIONS
-from common.types import Pos
+from common.constants import GUARD_VISION_RANGE
+from common.types import Action
 from common.types import FacingDirection
 from common.types import GuardState
 from common.types import MDPState
+from common.types import Pos
 from shield import SafetyShield
 
 
@@ -35,7 +37,7 @@ class GridConfigFactory:
         n_cols: int
         n_guards: int
         start: Pos
-        goal: Pos
+        goals: list[Pos]
         path: list[Pos]
         walls: list[Pos]
         guards: list[GuardState]
@@ -63,7 +65,7 @@ class GridConfigFactory:
             n_cols=n_cols,
             n_guards=n_guards,
             start=(0, 0),
-            goal=(0, 0),
+            goals=[],
             path=[],
             walls=[],
             guards=[],
@@ -79,7 +81,7 @@ class GridConfigFactory:
             n_rows=n_rows,
             n_cols=n_cols,
             start=context.start,
-            goals=(context.goal,),
+            goals=tuple(context.goals),
             walls=tuple(context.walls),
             guards=tuple(context.guards),
             reward_goal=10.0,
@@ -103,26 +105,27 @@ class GridConfigFactory:
             goal = (rng.randint(0, n_rows - 1), rng.randint(0, n_cols - 1))
 
         context.start = start
-        context.goal = goal
+        context.goals.append(goal)
 
     @staticmethod
     def _generate_simple_path(context: GridContext) -> None:
         start = context.start
-        goal = context.goal
+        goals = context.goals
 
         path = [start]
         current = start
 
-        while current != goal:
-            current = GridConfigFactory._next_step(current, goal, context.rng)
+        while current not in goals:
+            current = GridConfigFactory._next_step(current, goals, context.rng)
             path.append(current)
 
         context.path = path
 
     @staticmethod
-    def _next_step(current: Pos, goal: Pos, rng: random.Random) -> Pos:
+    def _next_step(current: Pos, goals: list[Pos], rng: random.Random) -> Pos:
         row_step = 0
         col_step = 0
+        goal = goals[0]
 
         if current[0] < goal[0]:
             row_step = 1
@@ -152,7 +155,7 @@ class GridConfigFactory:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
-        goal = context.goal
+        goals = context.goals
         path = context.path
         walls = context.walls
         rng = context.rng
@@ -166,7 +169,7 @@ class GridConfigFactory:
 
             if (
                 wall != start
-                and wall != goal
+                and wall not in goals
                 and wall not in path
                 and wall not in walls
             ):
@@ -177,7 +180,7 @@ class GridConfigFactory:
         n_rows = context.n_rows
         n_cols = context.n_cols
         start = context.start
-        goal = context.goal
+        goals = context.goals
         path = context.path
         walls = context.walls
         guards = context.guards
@@ -190,7 +193,7 @@ class GridConfigFactory:
 
             if (
                 guard_pos != start
-                and guard_pos != goal
+                and guard_pos not in goals
                 and guard_pos not in path
                 and guard_pos not in walls
                 and guard_pos not in [g[0] for g in guards]
