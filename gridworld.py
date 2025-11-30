@@ -417,6 +417,9 @@ class GridWorld:
         self.cur_state = self._build_mdp_state(self.agent_pos)
         self.initial_state = self.cur_state
 
+        if self.shield is not None:
+            self.shield.reset()
+
         return self.mdp_state_to_index(self.cur_state)
 
     def next_step(self, action: Action) -> tuple[int, float, bool, dict]:
