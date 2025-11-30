@@ -242,7 +242,7 @@ class Guard:
     def peek_step(
         env: "GridWorld",
         cur_pos: Pos,
-        facing: FacingDirection,
+        facing_direction: FacingDirection,
         agent_pos: Pos,
         other_guards: set[Pos],
     ) -> list[GuardState]:
@@ -256,14 +256,14 @@ class Guard:
           - are not occupied by other guards.
 
         At intersections, the guard avoids immediately backtracking
-        (moving opposite to its current facing) if there are other valid options.
+        (moving opposite to its current facing direction) if there are other valid options.
 
         If no movement is possible at all, the guard stays in place.
 
         Args:
             env: `GridWorld` instance used for queries (bounds/walls).
             cur_pos: Current guard position.
-            facing: Current facing direction index.
+            facing_direction: Current facing direction index.
             agent_pos: Current agent position.
             other_guards: Positions of other guards to avoid.
 
@@ -291,11 +291,11 @@ class Guard:
 
         # 2. If no directions are valid, staying in place is the only option
         if not valid_facing_directions:
-            return [(cur_pos, facing)]
+            return [(cur_pos, facing_direction)]
 
-        # 3. Compute the "back" direction (opposite of current facing)
+        # 3. Compute the "back" direction (opposite of current facing direction)
         back_direction = None
-        bdr, bdc = ACTIONS[facing]
+        bdr, bdc = ACTIONS[facing_direction]
         back_vec = (-bdr, -bdc)
 
         for i, (dr, dc) in enumerate(DIRECTIONS):
@@ -444,12 +444,12 @@ class GridWorld:
         return False
 
     def _is_visible_from_guard(
-        self, agent_pos: Pos, guard_pos: Pos, facing: FacingDirection
+        self, agent_pos: Pos, guard_pos: Pos, facing_direction: FacingDirection
     ) -> bool:
-        # Simple FOV: Straight ray in facing direction up to VISION_RANGE,
-        # blocked by walls.
+        # Straight ray in facing direction up to VISION_RANGE,
+        # blocked by walls
 
-        dr, dc = ACTIONS[facing]
+        dr, dc = ACTIONS[facing_direction]
         r, c = guard_pos
 
         for step in range(1, GUARD_VISION_RANGE + 1):

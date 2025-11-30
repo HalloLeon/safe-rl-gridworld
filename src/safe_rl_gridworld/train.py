@@ -476,7 +476,7 @@ def print_grid_config(config: GridConfig) -> None:
         if 0 <= r < config.n_rows and 0 <= c < config.n_cols:
             ch = facing_chars.get(
                 facing_direction, "X"
-            )  # Fallback if facing is unexpected
+            )  # Fallback if facing direction is unexpected
             grid[r][c] = ch
 
     # Start (draw last so it's visible even if overlapping something else)

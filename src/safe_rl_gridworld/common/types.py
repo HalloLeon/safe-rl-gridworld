@@ -7,5 +7,5 @@ GuardState = tuple[Pos, FacingDirection]
 
 MDPState = tuple[
     Pos, tuple[GuardState, ...]
-]  # MDPState: (agent_pos, tuple of (guard_pos, facing) for each guard)
+]  # MDPState: (agent_pos, tuple of (guard_pos, facing_direction) for each guard)
 DFAState = int
