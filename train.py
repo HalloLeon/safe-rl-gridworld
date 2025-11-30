@@ -1,4 +1,5 @@
 import os
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -164,139 +165,108 @@ def build_shielded_env(config: GridConfig) -> tuple[GridWorld, GridConfigFactory
     return env, config
 
 
-def rolling_avg(x: list[int], window: int = 25):
-    x = np.array(x)
+def print_grid_config(config: GridConfig) -> None:
+    # Pretty-print a static GridConfig as an ASCII map.
+    #
+    # Legend:
+    #     S  = start
+    #     G  = goal
+    #     #  = wall
+    #     ^v<> = guard (facing up/down/left/right)
+    #     .  = empty cell
+    #
+    # Map guard facing index -> char, assuming:
+    # DIRECTIONS = [UP, DOWN, LEFT, RIGHT]
 
-    if x.size < window:
-        return x
+    facing_chars = {
+        0: "^",  # UP
+        1: "v",  # DOWN
+        2: "<",  # LEFT
+        3: ">",  # RIGHT
+    }
 
-    cumsum = np.cumsum(np.insert(x, 0, 0))
-    avg = (cumsum[window:] - cumsum[:-window]) / float(window)
+    # Build a 2D grid of '.' first
+    grid = [["." for _ in range(config.n_cols)] for _ in range(config.n_rows)]
 
-    return avg
+    # Walls
+    for r, c in config.walls:
+        if 0 <= r < config.n_rows and 0 <= c < config.n_cols:
+            grid[r][c] = "#"
 
+    # Goals
+    for r, c in config.goals:
+        if 0 <= r < config.n_rows and 0 <= c < config.n_cols:
+            grid[r][c] = "G"
 
-def train_baseline(n_episodes: int = 500) -> None:
-    config = GridConfigFactory.random_config(n_rows=8, n_cols=8)
-    env = GridWorld(config)
+    # Guards
+    for g_pos, facing_direction in config.guards:
+        r, c = g_pos
 
-    n_states = config.n_rows * config.n_cols
-    n_actions = len(ACTIONS)
+        if 0 <= r < config.n_rows and 0 <= c < config.n_cols:
+            ch = facing_chars.get(
+                facing_direction, "X"
+            )  # Fallback if facing is unexpected
+            grid[r][c] = ch
 
-    agent = QLearningAgent(
-        n_states=n_states,
-        n_actions=n_actions,
-        learning_rate=0.1,
-        discount_factor=0.95,
-        exploration_rate=1.0,
-        exploration_decay=0.995,
-        min_exploration_rate=0.01,
-        seed=0,
-    )
+    # Start (draw last so it's visible even if overlapping something else)
+    sr, sc = config.start
 
-    rewards = []
-    steps = []
-    unsafe_flags = []  # 1 if caught in this episode, else 0
+    if 0 <= sr < config.n_rows and 0 <= sc < config.n_cols:
+        grid[sr][sc] = "S"
 
-    for _ in range(n_episodes):
-        total_reward, info, total_steps = run_episode(env, agent)
-        rewards.append(total_reward)
-        steps.append(total_steps)
-        unsafe_flags.append(1 if info.get("caught", False) else 0)
-
-    rolling_window = 25
-
-    os.makedirs("plots", exist_ok=True)
-
-    # Plot average reward
-    plt.figure()
-    plt.plot(rolling_avg(rewards, rolling_window))
-    plt.title(f"Average Reward without Shield (rolling window={rolling_window})")
-    plt.xlabel("Episode")
-    plt.ylabel("Reward")
-    plt.tight_layout()
-    plt.savefig("plots/reward_unshielded.png", dpi=150)
-
-    # Plot fraction of episodes where the agent was caught
-    plt.figure()
-    plt.plot(rolling_avg(unsafe_flags, rolling_window))
-    plt.title(
-        f"Fraction of Episodes Caught without Shield (rolling window={rolling_window})"
-    )
-    plt.xlabel("Episode")
-    plt.ylabel("Fraction caught")
-    plt.tight_layout()
-    plt.savefig("plots/unsafe_unshielded.png", dpi=150)
-
-    # Plot average number of steps per episode
-    plt.figure()
-    plt.plot(rolling_avg(steps, rolling_window))
-    plt.title(f"Average Steps without Shield (rolling window={rolling_window})")
-    plt.xlabel("Episode")
-    plt.ylabel("Steps")
-    plt.tight_layout()
-    plt.savefig("plots/steps_unshielded.png", dpi=150)
-
-
-def train_shielded(n_episodes: int = 500) -> None:
-    env, config = build_shielded_env()
-
-    n_states = config.n_rows * config.n_cols
-    n_actions = len(ACTIONS)
-
-    agent = QLearningAgent(
-        n_states=n_states,
-        n_actions=n_actions,
-        learning_rate=0.1,
-        discount_factor=0.95,
-        exploration_rate=1.0,
-        exploration_decay=0.995,
-        min_exploration_rate=0.01,
-        seed=0,
-    )
-
-    rewards = []
-    steps = []
-    unsafe_flags = []  # 1 if caught in this episode, else 0
-
-    for _ in range(n_episodes):
-        total_reward, info, total_steps = run_episode(env, agent)
-        rewards.append(total_reward)
-        steps.append(total_steps)
-        unsafe_flags.append(1 if info.get("caught", False) else 0)
-
-    rolling_window = 25
-
-    os.makedirs("plots", exist_ok=True)
-
-    # Plot average reward
-    plt.figure()
-    plt.plot(rolling_avg(rewards, rolling_window))
-    plt.title(f"Average Reward with Shield (rolling window={rolling_window})")
-    plt.xlabel("Episode")
-    plt.ylabel("Reward")
-    plt.tight_layout()
-    plt.savefig("plots/reward_shielded.png", dpi=150)
-
-    # Plot fraction of episodes where the agent was caught
-    plt.figure()
-    plt.plot(rolling_avg(unsafe_flags, rolling_window))
-    plt.title(f"Fraction of Episodes Caught (rolling window={rolling_window})")
-    plt.xlabel("Episode")
-    plt.ylabel("Fraction caught")
-    plt.tight_layout()
-    plt.savefig("plots/unsafe_shielded.png", dpi=150)
-
-    # Plot average number of steps per episode
-    plt.figure()
-    plt.plot(rolling_avg(steps, rolling_window))
-    plt.title(f"Average Steps with Shield (rolling window={rolling_window})")
-    plt.xlabel("Episode")
-    plt.ylabel("Steps")
-    plt.tight_layout()
-    plt.savefig("plots/steps_shielded.png", dpi=150)
+    for r in range(config.n_rows):
+        row_str = " ".join(f"{cell:2s}" for cell in grid[r])
+        print(f"{row_str}")
 
 
 if __name__ == "__main__":
-    train_baseline(n_episodes=200)
-    train_shielded(n_episodes=200)
+    config = GridConfigFactory.build_random_config(
+        n_rows=7, n_cols=7, walls_fraction=0.2, n_guards=2, seed=100
+    )
+
+    print_grid_config(config)
+
+    try:
+        if VERBOSE:
+            print(
+                f"Train config:\n"
+                f"  Rows:       {config.n_rows}\n"
+                f"  Cols:       {config.n_cols}\n"
+                f"  Guards:     {len(config.guards)}\n"
+            )
+
+            start = time.perf_counter()
+
+        unshielded_rewards, unshielded_steps, unshielded_unsafe_flags = train(
+            config, shielded=False
+        )
+
+        if VERBOSE:
+            end = time.perf_counter()
+            print(f"Unshielded training time: {end - start:.2f} seconds\n")
+            start = time.perf_counter()
+
+        shielded_rewards, shielded_steps, shielded_unsafe_flags = train(
+            config, shielded=True
+        )
+
+        if VERBOSE:
+            end = time.perf_counter()
+            print(f"Shielded training time: {end - start:.2f} seconds\n")
+    except RuntimeError as e:
+        print(e)
+        exit(1)
+
+    plot_results(
+        unshielded_rewards,
+        unshielded_steps,
+        unshielded_unsafe_flags,
+        file_prefix="unshielded_",
+    )
+
+    plot_results(
+        shielded_rewards,
+        shielded_steps,
+        shielded_unsafe_flags,
+        file_prefix="shielded_",
+    )
