@@ -493,5 +493,5 @@ def print_grid_config(config: GridConfig) -> None:
 
 
 if __name__ == "__main__":
-    config = GridConfigFactory.build_random_config(7, 7, n_guards=1, seed=42)
+    config = GridConfigFactory.build_random_config(7, 7, n_guards=2, seed=0)
     evaluate_shield_effectiveness(config, verbose=True)
