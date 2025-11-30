@@ -11,6 +11,21 @@ from shield_synthesis.automaton.dfa import DFA
 
 
 class SafetyShield:
+    """
+    Safety shield for an MDP + DFA product game.
+
+    Given:
+      - a DFA encoding the safety specification,
+      - a precomputed winning region in the product (MDPState, DFAState),
+      - a function `peek_mdp_step` giving *all* possible successor MDP states
+        for a given (state, action) pair (capturing environment nondeterminism),
+      - and a labelling function `compute_mdp_label`,
+
+    the shield filters proposed actions so that the actual run stays within
+    the winning region as long as the environment behaves according to
+    `peek_mdp_step`.
+    """
+
     def __init__(
         self,
         dfa: DFA,
@@ -29,11 +44,25 @@ class SafetyShield:
         self._safe_cache: dict[tuple[DFAState, MDPState, Action], bool] = {}
 
     def filter_action(self, mdp_state: MDPState, action: int) -> int:
-        # Filter the agent's proposed action using the winning region.
-        #
-        # An action is considered safe iff for all possible environment
-        # successors (due to potential guard nondeterminism) the product state
-        # (next_mdp_state, next_dfa_state) lies in the winning region.
+        """
+        Given the current MDP state and a proposed action, return a safe action.
+
+        An action is considered safe iff for all possible environment successors
+        the product state (next_mdp_state, next_dfa_state) lies in the winning region.
+
+        Logic:
+          1. If the proposed action is safe, keep it.
+          2. Otherwise, search over all actions and pick a safe one at random.
+          3. If no safe action exists (should not happen if the winning region
+             is correct and the agent is in it), fall back to the original action.
+
+        Args:
+            mdp_state: Current MDP state.
+            action: Proposed action.
+
+        Returns:
+            The action to execute (possibly different from the proposed one).
+        """
 
         if self._is_action_safe(mdp_state, action):
             return action
@@ -51,8 +80,13 @@ class SafetyShield:
         return action
 
     def _is_action_safe(self, mdp_state: MDPState, action: int) -> bool:
-        # Check if an action is safe from (mdp_state, current_dfa_state)
-        # under all possible environment successors.
+        """
+        Check if an action is safe from the current DFA state and given MDP state.
+
+        An action is safe iff for *all* nondeterministic environment successors
+        s' ∈ peek_mdp_step(mdp_state, action), the product (s', q') is in the
+        winning region, where q' = dfa.peek_next(cur_dfa_state, (label(s'), action)).
+        """
 
         cur_state = self.dfa.cur_state
         cache_key = (cur_state, mdp_state, action)
@@ -63,16 +97,15 @@ class SafetyShield:
 
         successors = self.peek_mdp_step(mdp_state, action)
         if not successors:
-            self._safe_cache[cache_key] = (
-                False  # No defined successors -> treat as unsafe
-            )
+            # No defined successors -> treat as unsafe
+            self._safe_cache[cache_key] = False
             return False
 
         for next_mdp_state in successors:
             next_label = self.compute_mdp_label(next_mdp_state)
             next_dfa_state = self.dfa.peek_next(
                 cur_state, (next_label, action)
-            )  # Compute DFA successor from the current DFA state
+            )  # DFA successor from the current DFA state
 
             if (next_mdp_state, next_dfa_state) not in self.winning_region:
                 # At least one possible successor leaves the winning region
@@ -84,14 +117,24 @@ class SafetyShield:
 
         return True
 
-    def update(self, next_mdp_state, action):
-        # Must be called by the environment after it has taken the chosen action
-        # and observed the actual next MDP state.
-        #
-        # This keeps the DFA's internal cur_state in sync with the true run.
+    def update(self, next_mdp_state: MDPState, action: Action) -> DFAState:
+        """
+        Update the internal DFA state after the environment has actually
+        executed an action and transitioned to a new MDP state.
+
+        This *must* be called by the environment after each real step in order
+        for the shield's internal DFA state to stay in sync with the actual run.
+        """
 
         next_label = self.compute_mdp_label(next_mdp_state)
         return self.dfa.next((next_label, action))
-    
+
     def reset(self) -> None:
+        """
+        Reset the internal DFA state.
+
+        This *must* be called whenever the environment is reset to an initial MDP
+        state consistent with the DFA's initial state.
+        """
+
         self.dfa.reset()
