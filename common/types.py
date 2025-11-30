@@ -1,8 +1,8 @@
-Action = int
+Action = int  # index into ACTIONS
 Label = int
 
 Pos = tuple[int, int]  # (row, col)
-FacingDirection = int  # 0: up, 1: down, 2: left, 3: right
+FacingDirection = int  # index into DIRECTIONS
 GuardState = tuple[Pos, FacingDirection]
 
 MDPState = tuple[
