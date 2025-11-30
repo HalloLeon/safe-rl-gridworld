@@ -65,7 +65,7 @@ def evaluate_shield_effectiveness(
                 f"  Guards:     {len(config.guards)}\n"
             )
             start = time.perf_counter()
-            print("Starting unshielded training...")
+            print("Unshielded training:")
 
         unshielded_rewards, unshielded_steps, unshielded_unsafe_flags = train(
             config, shielded=False
@@ -73,9 +73,25 @@ def evaluate_shield_effectiveness(
 
         if VERBOSE:
             end = time.perf_counter()
-            print(f"Unshielded training time: {end - start:.2f} seconds\n")
+            print(f"Training time: {end - start:.2f} seconds")
+
+            unshielded_percentage_unsafe = (
+                sum(unshielded_unsafe_flags) / len(unshielded_unsafe_flags) * 100
+            )
+            print(
+                f"Unsafe episodes: "
+                f"{sum(unshielded_unsafe_flags)} "
+                f"({unshielded_percentage_unsafe:.2f}%)"
+            )
+
+            unshielded_avg_reward = np.mean(unshielded_rewards)
+            print(f"Average reward: {unshielded_avg_reward:.2f}")
+
+            unshielded_avg_steps = np.mean(unshielded_steps)
+            print(f"Average steps per episode: {unshielded_avg_steps:.2f}\n")
+
             start = time.perf_counter()
-            print("Starting shielded training...")
+            print("Shielded training:")
 
         shielded_rewards, shielded_steps, shielded_unsafe_flags = train(
             config, shielded=True
@@ -83,7 +99,25 @@ def evaluate_shield_effectiveness(
 
         if VERBOSE:
             end = time.perf_counter()
-            print(f"Shielded training time: {end - start:.2f} seconds\n")
+            print(f"Training time: {end - start:.2f} seconds")
+
+            shielded_percentage_unsafe = (
+                sum(shielded_unsafe_flags) / len(shielded_unsafe_flags) * 100
+            )
+            print(
+                f"Unsafe episodes: "
+                f"{sum(shielded_unsafe_flags)} "
+                f"({shielded_percentage_unsafe:.2f}%)"
+            )
+
+            shielded_avg_reward = np.mean(shielded_rewards)
+            print(f"Average reward: {shielded_avg_reward:.2f}")
+
+            shielded_avg_steps = np.mean(shielded_steps)
+            print(f"Average steps per episode: {shielded_avg_steps:.2f}\n")
+
+            delta_avg_reward = shielded_avg_reward - unshielded_avg_reward
+            print(f"Delta average reward (shielded - unshielded): {delta_avg_reward:.2f}\n")
     except RuntimeError as e:
         print(e)
         exit(1)

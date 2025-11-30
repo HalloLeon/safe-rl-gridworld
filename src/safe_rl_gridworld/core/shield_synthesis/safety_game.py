@@ -61,12 +61,12 @@ class SafetyGameSolver:
         reachable = self._compute_reachable_states(initial_mdp_state)
 
         if VERBOSE:
-            print(f"Reachable states: {len(reachable)}")
+            print(f"[Reachable states: {len(reachable)}]")
 
         winning = self._compute_winning_states(reachable)
 
         if VERBOSE:
-            print(f"Winning states: {len(winning)}")
+            print(f"[Winning states: {len(winning)}]")
 
         return winning
 
