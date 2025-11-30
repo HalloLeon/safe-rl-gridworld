@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 
@@ -11,7 +13,7 @@ class QLearningAgent:
         exploration_rate=1.0,
         exploration_decay=0.995,
         min_exploration_rate=0.01,
-        seed=0,
+        rng=None,
     ):
         self.n_states = n_states
         self.n_actions = n_actions
@@ -20,12 +22,12 @@ class QLearningAgent:
         self.exploration_rate = exploration_rate
         self.exploration_decay = exploration_decay
         self.min_exploration_rate = min_exploration_rate
-        self.rng = np.random.default_rng(seed)
+        self.rng = rng or random.Random()
         self.q_table = np.zeros((n_states, n_actions), dtype=float)
 
     def get_action(self, state):
         if self.rng.random() < self.exploration_rate:
-            return self.rng.integers(self.n_actions)
+            return self.rng.randrange(self.n_actions)
         else:
             return int(np.argmax(self.q_table[state]))
 
