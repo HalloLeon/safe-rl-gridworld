@@ -47,11 +47,11 @@ class GridConfigFactory:
         raise TypeError("GridConfigFactory is not instantiable.")
 
     @classmethod
-    def default_config(cls: type["GridConfigFactory"]) -> GridConfig:
+    def build_default_config(cls: type["GridConfigFactory"]) -> GridConfig:
         return GridConfig()
 
     @classmethod
-    def random_config(
+    def build_random_config(
         cls: type["GridConfigFactory"],
         n_rows: int,
         n_cols: int,
