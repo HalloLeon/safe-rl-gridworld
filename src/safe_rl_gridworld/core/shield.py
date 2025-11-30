@@ -2,12 +2,12 @@ import random
 from typing import Callable
 from typing import Optional
 
-from common.constants import ACTIONS
-from common.types import Action
-from common.types import DFAState
-from common.types import Label
-from common.types import MDPState
-from shield_synthesis.automaton.dfa import DFA
+from safe_rl_gridworld.common.constants import ACTIONS
+from safe_rl_gridworld.common.types import Action
+from safe_rl_gridworld.common.types import DFAState
+from safe_rl_gridworld.common.types import Label
+from safe_rl_gridworld.common.types import MDPState
+from safe_rl_gridworld.core.shield_synthesis.automaton.dfa import DFA
 
 
 class SafetyShield:

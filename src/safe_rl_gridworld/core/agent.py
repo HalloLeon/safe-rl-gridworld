@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from common.types import Action
+from safe_rl_gridworld.common.types import Action
 
 
 class QLearningAgent:

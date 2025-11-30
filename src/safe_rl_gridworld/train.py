@@ -8,15 +8,15 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
 
-from agent import QLearningAgent
-from common.constants import ACTIONS
-from common.constants import VERBOSE
-from gridworld import GridConfig
-from gridworld import GridWorld
-from gridworld import GridConfigFactory
-from shield import SafetyShield
-from shield_synthesis.automaton.dfa import build_simple_dfa
-from shield_synthesis.safety_game import SafetyGameSolver
+from safe_rl_gridworld.core.agent import QLearningAgent
+from safe_rl_gridworld.common.constants import ACTIONS
+from safe_rl_gridworld.common.constants import VERBOSE
+from safe_rl_gridworld.core.gridworld import GridConfig
+from safe_rl_gridworld.core.gridworld import GridWorld
+from safe_rl_gridworld.core.gridworld import GridConfigFactory
+from safe_rl_gridworld.core.shield import SafetyShield
+from safe_rl_gridworld.core.shield_synthesis.automaton.dfa import build_simple_dfa
+from safe_rl_gridworld.core.shield_synthesis.safety_game import SafetyGameSolver
 
 
 def evaluate_shield_effectiveness(
@@ -32,7 +32,7 @@ def evaluate_shield_effectiveness(
       - Trains a shielded agent on the same environment,
       - Measures rewards, steps, and safety violations for both,
       - Produces a combined 3-panel plot comparing the two training curves
-        and saves it to "plots/shielded_vs_unshielded.png".
+        and saves it to plots/shielded_vs_unshielded.png".
 
     The plot includes:
       * Smoothed episode reward,
@@ -493,5 +493,5 @@ def print_grid_config(config: GridConfig) -> None:
 
 
 if __name__ == "__main__":
-    config = GridConfigFactory.build_random_config(7, 7, n_guards=2, seed=42)
+    config = GridConfigFactory.build_random_config(7, 7, n_guards=1, seed=42)
     evaluate_shield_effectiveness(config, verbose=True)

@@ -4,15 +4,15 @@ import random
 from typing import NoReturn
 from typing import Optional
 
-from common.constants import ACTIONS
-from common.constants import DIRECTIONS
-from common.constants import GUARD_VISION_RANGE
-from common.types import Action
-from common.types import FacingDirection
-from common.types import GuardState
-from common.types import MDPState
-from common.types import Pos
-from shield import SafetyShield
+from safe_rl_gridworld.common.constants import ACTIONS
+from safe_rl_gridworld.common.constants import DIRECTIONS
+from safe_rl_gridworld.common.constants import GUARD_VISION_RANGE
+from safe_rl_gridworld.common.types import Action
+from safe_rl_gridworld.common.types import FacingDirection
+from safe_rl_gridworld.common.types import GuardState
+from safe_rl_gridworld.common.types import MDPState
+from safe_rl_gridworld.common.types import Pos
+from safe_rl_gridworld.core.shield import SafetyShield
 
 
 @dataclass

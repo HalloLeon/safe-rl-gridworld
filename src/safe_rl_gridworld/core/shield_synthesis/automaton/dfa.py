@@ -1,6 +1,6 @@
-from common.types import Action
-from common.types import DFAState
-from common.types import Label
+from safe_rl_gridworld.common.types import Action
+from safe_rl_gridworld.common.types import DFAState
+from safe_rl_gridworld.common.types import Label
 
 
 class DFA:

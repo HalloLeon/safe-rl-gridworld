@@ -2,12 +2,12 @@ from collections import deque
 from typing import Callable
 
 
-from common.constants import VERBOSE
-from common.types import Action
-from common.types import Label
-from common.types import MDPState
-from shield_synthesis.automaton.dfa import DFA
-from shield_synthesis.automaton.dfa import DFAState
+from safe_rl_gridworld.common.constants import VERBOSE
+from safe_rl_gridworld.common.types import Action
+from safe_rl_gridworld.common.types import Label
+from safe_rl_gridworld.common.types import MDPState
+from safe_rl_gridworld.core.shield_synthesis.automaton.dfa import DFA
+from safe_rl_gridworld.core.shield_synthesis.automaton.dfa import DFAState
 
 
 class SafetyGameSolver:

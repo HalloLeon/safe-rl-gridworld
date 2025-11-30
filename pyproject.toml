@@ -1,0 +1,14 @@
+[project]
+name = "safe-rl-gridworld"
+version = "1.00"
+dependencies = ["matplotlib", "numpy"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
