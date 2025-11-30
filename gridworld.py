@@ -201,8 +201,6 @@ class GridConfigFactory:
 
 
 class Guard:
-    VISION_RANGE = 3
-
     def __init__(self, env: "GridWorld", pos: Pos, facing_direction: FacingDirection):
         self.env = env
         self.pos = pos
@@ -213,57 +211,83 @@ class Guard:
         env: "GridWorld",
         cur_pos: Pos,
         facing: FacingDirection,
-        agent_pos: AgentPos,
-        other_guards: set[GuardPos],
-    ) -> GuardState:
-        # Pure guard movement logic that avoids:
-        #   - walls
-        #   - the agent
-        #   - other guards' positions
+        agent_pos: Pos,
+        other_guards: set[Pos],
+    ) -> list[GuardState]:
+        # Pure guard movement choice:
+        #
+        # Returns a list of all possible next (pos, facing) pairs that:
+        #   - stay within bounds,
+        #   - are not walls,
+        #   - are not the agent,
+        #   - are not occupied by other guards,
+        # and that respect a "no immediate backtracking" policy at intersections.
+        #
+        # If no movement is possible at all, returns [(cur_pos, facing)] (stay).
 
-        # Try to move forward in current facing direction
-        dr, dc = ACTIONS[facing]
-        next_pos = (cur_pos[0] + dr, cur_pos[1] + dc)
+        valid_facing_directions = []
 
-        if (
-            env.in_bounds(next_pos)
-            and not env.is_wall(next_pos)
-            and next_pos != agent_pos
-            and next_pos not in other_guards
-        ):
-            return next_pos, facing
-
-        # Try all other actions
-        for action in range(len(ACTIONS)):
-            adr, adc = ACTIONS[action]
-            potential_pos = (cur_pos[0] + adr, cur_pos[1] + adc)
+        # 1. Collect all valid movement directions (UP/DOWN/LEFT/RIGHT indices 0..len(DIRECTIONS)-1)
+        for d in range(len(DIRECTIONS)):
+            dr, dc = ACTIONS[d]
+            candidate = (cur_pos[0] + dr, cur_pos[1] + dc)
 
             if (
-                not env.in_bounds(potential_pos)
-                or env.is_wall(potential_pos)
-                or potential_pos == agent_pos
-                or potential_pos in other_guards
+                not env.in_bounds(candidate)
+                or env.is_wall(candidate)
+                or candidate == agent_pos
+                or candidate in other_guards
             ):
                 continue
 
-            # If this is a real direction (UP/DOWN/LEFT/RIGHT), update facing
-            if action < len(DIRECTIONS):
-                return potential_pos, action
-            else:
-                # e.g. STAY action: keep facing
-                return potential_pos, facing
+            valid_facing_directions.append(d)
 
-        # No move possible -> stay in place
-        return cur_pos, facing
+        # 2. If no directions are valid, staying in place is the only option
+        if not valid_facing_directions:
+            return [(cur_pos, facing)]
+
+        # 3. Compute the "back" direction (opposite of current facing)
+        back_direction = None
+        bdr, bdc = ACTIONS[facing]
+        back_vec = (-bdr, -bdc)
+
+        for i, (dr, dc) in enumerate(DIRECTIONS):
+            if (dr, dc) == back_vec:
+                back_direction = i
+                break
+
+        # 4. At intersections, avoid the back direction if possible
+        if (
+            back_direction is not None
+            and back_direction in valid_facing_directions
+            and len(valid_facing_directions) > 1
+        ):
+            filtered = [d for d in valid_facing_directions if d != back_direction]
+
+            if filtered:
+                valid_facing_directions = filtered
+
+        # 5. Build all possible next guard states
+        possible_states = []
+
+        for d in valid_facing_directions:
+            dr, dc = ACTIONS[d]
+            next_pos = (cur_pos[0] + dr, cur_pos[1] + dc)
+            possible_states.append((next_pos, d))
+
+        return possible_states
 
     def next_step(self) -> None:
-        # Use peek_step with the current env agent position,
+        # Use peek_step with the current env agent position, choose one valid move at random,
         # then mutate self.pos and self.facing_direction.
 
         other_guards = {g.pos for g in self.env.guards if g.pos != self.pos}
-        new_pos, new_facing_direction = Guard.peek_step(
+        candidates = Guard.peek_step(
             self.env, self.pos, self.facing_direction, self.env.agent_pos, other_guards
         )
+
+        # Candidates is guaranteed to be non-empty (at least stay)
+        new_pos, new_facing_direction = self.env.rng.choice(candidates)
         self.pos = new_pos
         self.facing_direction = new_facing_direction
 
