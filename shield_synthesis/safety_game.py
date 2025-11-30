@@ -14,16 +14,22 @@ class SafetyGameSolver:
     """
     Solves a safety game on the product of an MDP and a DFA.
 
-    - The MDP is given symbolically by:
-        mdp_next: (mdp_state, action) -> set[next_mdp_state]
-        compute_label: mdp_state -> label
-
-    - The DFA encodes the safety specification over (label, action) pairs.
-      The safe DFA states are given by dfa.is_safe_state(q).
-
     The winning region is the set of product states (s, q) from which the
     agent can enforce that the DFA remains in a safe state,
     regardless of the environment's moves.
+
+    Args:
+        dfa:
+            Deterministic finite automaton encoding the safety specification.
+        actions:
+            List of all available agent actions in the MDP. These are the
+            actions over which the safety game quantifies.
+        mdp_next:
+            Symbolic transition function of the MDP.
+            Must enumerate *all* possible successor MDP states for the
+            given (state, action), including environment nondeterminism.
+        compute_label:
+            Labelling function used as input to the DFA transitions.
     """
 
     def __init__(

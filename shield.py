@@ -14,16 +14,28 @@ class SafetyShield:
     """
     Safety shield for an MDP + DFA product game.
 
-    Given:
-      - a DFA encoding the safety specification,
-      - a precomputed winning region in the product (MDPState, DFAState),
-      - a function `peek_mdp_step` giving *all* possible successor MDP states
-        for a given (state, action) pair (capturing environment nondeterminism),
-      - and a labelling function `compute_mdp_label`,
-
-    the shield filters proposed actions so that the actual run stays within
+    The shield filters proposed actions so that the actual run stays within
     the winning region as long as the environment behaves according to
     `peek_mdp_step`.
+
+    Args:
+        dfa:
+            Deterministic finite automaton encoding the safety specification
+            over (label, action) pairs.
+        winning_region:
+            Set of product states `(mdp_state, dfa_state)` from which the
+            agent can enforce safety in the safety game.
+        peek_mdp_step:
+            Function implementing the symbolic MDP transition,
+            giving *all* possible successor MDP states for a given
+            (mdp_state, action) pair (capturing environment nondeterminism),
+        compute_mdp_label:
+            Labelling function, mapping an MDP state to the label used
+            by the DFA.
+        rng:
+            Optional random number generator used to break ties between
+            multiple safe actions. If `None`, a fresh `random.Random`
+            instance is created.
     """
 
     def __init__(
