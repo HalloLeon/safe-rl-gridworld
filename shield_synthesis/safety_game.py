@@ -138,7 +138,7 @@ class SafetyGameSolver:
         Check if there exists at least one controller action 'a' such that
         for *all* environment successors s' ∈ mdp_next(mdp_state, a),
         the product state (s', q') is winning, where
-          q' = dfa.peek_next(dfa_state, (label(s'), a)).
+        q' = dfa.peek_next(dfa_state, (label(s'), a)).
         """
 
         for a in self.actions:
