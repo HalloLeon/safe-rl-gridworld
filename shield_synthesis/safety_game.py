@@ -15,13 +15,16 @@ class SafetyGameSolver:
         self,
         dfa: DFA,
         actions: list[Action],
-        mdp_next: Callable[[MDPState, Action], MDPState],
+        mdp_next: Callable[[MDPState, Action], set[MDPState]],
         compute_label: Callable[[MDPState], Label],
     ):
         self.dfa = dfa
         self.actions = actions
         self.mdp_next = mdp_next
         self.compute_label = compute_label
+
+        # Cache for performance
+        self._label_cache: dict[MDPState, Label] = {}
 
     def compute_winning_region(
         self, initial_mdp_state: MDPState
@@ -43,14 +46,16 @@ class SafetyGameSolver:
             mdp_state, dfa_state = queue.popleft()
 
             for a in self.actions:
-                next_mdp_state = self.mdp_next(mdp_state, a)
-                next_label = self.compute_label(next_mdp_state)
-                next_dfa_state = self.dfa.peek_next(dfa_state, (next_label, a))
-                next_state = (next_mdp_state, next_dfa_state)
+                successors = self.mdp_next(mdp_state, a)
 
-                if next_state not in reachable:
-                    reachable.add(next_state)
-                    queue.append(next_state)
+                for next_mdp_state in successors:
+                    next_label = self._get_label(next_mdp_state)
+                    next_dfa_state = self.dfa.peek_next(dfa_state, (next_label, a))
+                    next_state = (next_mdp_state, next_dfa_state)
+
+                    if next_state not in reachable:
+                        reachable.add(next_state)
+                        queue.append(next_state)
 
         return reachable
 
@@ -83,12 +88,36 @@ class SafetyGameSolver:
         dfa_state: DFAState,
         winning: set[tuple[MDPState, DFAState]],
     ) -> bool:
-        for a in self.actions:
-            next_mdp_state = self.mdp_next(mdp_state, a)
-            next_label = self.compute_label(next_mdp_state)
-            next_dfa_state = self.dfa.peek_next(dfa_state, (next_label, a))
+        # There exists an action a such that for all environment successors
+        # s' in mdp_successors(mdp_state, a), the product (s', q') is winning
+        # for q' = dfa.peek_next(dfa_state, (compute_label(s'), a))
 
-            if (next_mdp_state, next_dfa_state) in winning:
+        for a in self.actions:
+            successors = self.mdp_next(mdp_state, a)
+
+            if not successors:
+                continue  # no transitions for this action
+
+            all_good = True
+
+            for next_mdp_state in successors:
+                next_label = self._get_label(next_mdp_state)
+                next_dfa_state = self.dfa.peek_next(dfa_state, (next_label, a))
+
+                if (next_mdp_state, next_dfa_state) not in winning:
+                    all_good = False
+                    break
+
+            if all_good:
                 return True
 
         return False
+
+    def _get_label(self, mdp_state: MDPState) -> Label:
+        if mdp_state in self._label_cache:
+            return self._label_cache[mdp_state]
+
+        lab = self.compute_label(mdp_state)
+        self._label_cache[mdp_state] = lab
+
+        return lab
