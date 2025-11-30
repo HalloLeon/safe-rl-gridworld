@@ -337,6 +337,13 @@ class GridWorld:
     def is_agent(self, pos: Pos) -> bool:
         return self.agent_pos == pos
 
+    def is_guard(self, pos: Pos) -> bool:
+        for guard in self.guards:
+            if guard.pos == pos:
+                return True
+
+        return False
+
     def is_caught(self, mdp_state: MDPState) -> bool:
         agent_pos, guard_states = mdp_state
 
@@ -358,7 +365,7 @@ class GridWorld:
         dr, dc = ACTIONS[facing]
         r, c = guard_pos
 
-        for step in range(1, Guard.VISION_RANGE + 1):
+        for step in range(1, GUARD_VISION_RANGE + 1):
             cell = (r + step * dr, c + step * dc)
 
             if not self.in_bounds(cell) or self.is_wall(cell):
@@ -521,20 +528,17 @@ class GridWorld:
         # No safe alternative found -> fall back to original
         return action
 
-    def _next_agent_pos(self, agent_pos: Pos, action: int) -> Pos:
-        # Compute the agent's next position given an action.
-
-        # Only grid bounds are treated as hard constraints here.
-        # Wall cells are not blocked at the dynamics level – they are
-        # handled as 'unsafe' by the safety spec / shield (via labels/DFA),
-        # or avoided by the fallback _select_action policy in the
-        # unshielded baseline.
+    def _next_agent_pos(self, agent_pos: Pos, action: Action) -> Pos:
+        # Compute the agent's next position given an action
 
         dr, dc = ACTIONS[action]
         new_pos = (agent_pos[0] + dr, agent_pos[1] + dc)
 
-        # Only enforce grid bounds here; walls are modeled via labels / DFA
-        if not self.in_bounds(new_pos):
-            return agent_pos  # bump into border -> stay
+        if (
+            not self.in_bounds(new_pos)
+            or self.is_wall(new_pos)
+            or self.is_guard(new_pos)
+        ):
+            return agent_pos  # Stay
 
         return new_pos
