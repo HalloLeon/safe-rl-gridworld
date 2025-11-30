@@ -25,6 +25,7 @@ class GridConfig:
     penalty_step: float = -0.1
     terminate_on_completion: bool = True
     terminate_if_caught: bool = True
+    rng: Optional[random.Random] = None
 
 
 class GridConfigFactory:
@@ -86,6 +87,7 @@ class GridConfigFactory:
             penalty_step=-0.1,
             terminate_on_completion=True,
             terminate_if_caught=True,
+            rng=context.rng,
         )
 
     @staticmethod
@@ -266,15 +268,10 @@ class Guard:
 
 
 class GridWorld:
-    def __init__(
-        self,
-        config: GridConfig,
-        shield: Optional[SafetyShield] = None,
-        rng: Optional[random.Random] = None,
-    ):
+    def __init__(self, config: GridConfig, shield: Optional[SafetyShield] = None):
         self.config = config
         self.shield = shield
-        self.rng = rng if rng is not None else random.Random()
+        self.rng = config.rng or random.Random()
 
         # Initialize guards as objects
         self.guards = self._init_guards()
