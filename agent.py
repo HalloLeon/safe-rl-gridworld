@@ -19,7 +19,6 @@ class QLearningAgent:
         exploration_decay: Multiplicative decay factor applied to ε after each episode.
         min_exploration_rate: Lower bound on ε.
         rng: Random number generator used for exploration.
-        q_table: Q-values with shape (n_states, n_actions).
     """
 
     def __init__(
@@ -46,6 +45,7 @@ class QLearningAgent:
 
         self.rng = rng or random.Random()
 
+        # Q-values with shape (n_states, n_actions)
         self.q_table = np.zeros((n_states, n_actions), dtype=float)
 
     def get_action(self, state_index: int) -> Action:
