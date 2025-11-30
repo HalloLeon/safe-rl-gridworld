@@ -32,6 +32,12 @@ class GridConfig:
 
 
 class GridConfigFactory:
+    """
+    Factory for constructing grid configurations.
+
+    This class is a utility collection and must not be instantiated.
+    """
+
     @dataclass
     class GridContext:
         n_rows: int
@@ -49,10 +55,6 @@ class GridConfigFactory:
         raise TypeError("GridConfigFactory is not instantiable.")
 
     @classmethod
-    def build_default_config(cls: type["GridConfigFactory"]) -> GridConfig:
-        return GridConfig()
-
-    @classmethod
     def build_random_config(
         cls: type["GridConfigFactory"],
         n_rows: int,
@@ -61,6 +63,27 @@ class GridConfigFactory:
         n_guards: int = 1,
         seed: int = 0,
     ) -> GridConfig:
+        """
+        Build a random grid configuration.
+
+        The procedure:
+            1. Randomly choose a start and goal.
+            2. Build a simple path from start to goal.
+            3. Place walls randomly (`walls_fraction` of the grid),
+               avoiding start, goals, and the path.
+            4. Place `n_guards` guards in free cells.
+
+        Args:
+            n_rows: Number of grid rows.
+            n_cols: Number of grid columns.
+            walls_fraction: Fraction of cells to be turned into walls.
+            n_guards: Number of guards to place.
+            seed: RNG seed for reproducibility.
+
+        Returns:
+            A `GridConfig` instance with randomized layout and guards.
+        """
+
         context = cls.GridContext(
             n_rows=n_rows,
             n_cols=n_cols,
@@ -174,7 +197,6 @@ class GridConfigFactory:
                 walls.append(wall)
                 n_walls -= 1
 
-
     @staticmethod
     def _generate_random_guards(context: GridContext, n_guards: int) -> None:
         n_rows = context.n_rows
@@ -202,6 +224,15 @@ class GridConfigFactory:
 
 
 class Guard:
+    """
+    Guard entity with simple local movement rules.
+
+    Args:
+        env: Reference to the `GridWorld` environment.
+        pos: Initial position of the guard.
+        facing_direction: Initial facing direction (index into `DIRECTIONS`/`ACTIONS`).
+    """
+
     def __init__(self, env: "GridWorld", pos: Pos, facing_direction: FacingDirection):
         self.env = env
         self.pos = pos
@@ -215,16 +246,31 @@ class Guard:
         agent_pos: Pos,
         other_guards: set[Pos],
     ) -> list[GuardState]:
-        # Pure guard movement choice:
-        #
-        # Returns a list of all possible next (pos, facing) pairs that:
-        #   - stay within bounds,
-        #   - are not walls,
-        #   - are not the agent,
-        #   - are not occupied by other guards,
-        # and that respect a "no immediate backtracking" policy at intersections.
-        #
-        # If no movement is possible at all, returns [(cur_pos, facing)] (stay).
+        """
+        Compute all valid next guard states from a given state.
+
+        The guard chooses among neighbors that:
+          - are inside the grid,
+          - are not walls,
+          - are not occupied by the agent,
+          - are not occupied by other guards.
+
+        At intersections, the guard avoids immediately backtracking
+        (moving opposite to its current facing) if there are other valid options.
+
+        If no movement is possible at all, the guard stays in place.
+
+        Args:
+            env: `GridWorld` instance used for queries (bounds/walls).
+            cur_pos: Current guard position.
+            facing: Current facing direction index.
+            agent_pos: Current agent position.
+            other_guards: Positions of other guards to avoid.
+
+        Returns:
+            A list of `(pos, facing_direction)` pairs representing all valid
+            next states for this guard.
+        """
 
         valid_facing_directions = []
 
@@ -279,8 +325,9 @@ class Guard:
         return possible_states
 
     def next_step(self) -> None:
-        # Use peek_step with the current env agent position, choose one valid move at random,
-        # then mutate self.pos and self.facing_direction.
+        """
+        Sample and apply a single guard move.
+        """
 
         other_guards = {g.pos for g in self.env.guards if g.pos != self.pos}
         candidates = Guard.peek_step(
@@ -294,6 +341,14 @@ class Guard:
 
 
 class GridWorld:
+    """
+    Gridworld MDP with guards and an optional safety shield.
+
+    Args:
+        config: `GridConfig` specifying layout, rewards, and guards.
+        shield: Optional `SafetyShield` that filters agent actions.
+    """
+
     def __init__(self, config: GridConfig, shield: Optional[SafetyShield] = None):
         self.config = config
         self.shield = shield
@@ -330,18 +385,38 @@ class GridWorld:
         return (agent_pos, guard_states)
 
     def in_bounds(self, pos: Pos) -> bool:
+        """
+        Check if a position lies within the grid bounds.
+        """
+
         return 0 <= pos[0] < self.config.n_rows and 0 <= pos[1] < self.config.n_cols
 
     def is_wall(self, pos: Pos) -> bool:
+        """
+        Check if a position is a wall cell.
+        """
+
         return pos in self.config.walls
 
     def is_goal_pos(self, pos: Pos) -> bool:
+        """
+        Check if a position is one of the goal cells.
+        """
+
         return pos in self.config.goals
 
     def is_agent(self, pos: Pos) -> bool:
+        """
+        Check if a position is occupied by the agent.
+        """
+
         return self.agent_pos == pos
 
     def is_guard(self, pos: Pos) -> bool:
+        """
+        Check if a position is occupied by any guard.
+        """
+
         for guard in self.guards:
             if guard.pos == pos:
                 return True
@@ -349,6 +424,14 @@ class GridWorld:
         return False
 
     def is_caught(self, mdp_state: MDPState) -> bool:
+        """
+        Check if the agent is caught by any guard in the given state.
+
+        The agent is considered caught if:
+          - any guard shares the same cell as the agent, or
+          - the agent lies in a guard's field-of-view ray.
+        """
+
         agent_pos, guard_states = mdp_state
 
         for g_pos, facing_direction in guard_states:
@@ -381,10 +464,36 @@ class GridWorld:
         return False
 
     def mdp_state_to_index(self, mdp_state: MDPState) -> int:
+        """
+        Map an MDP state to a discrete index (using only agent position).
+
+        The index is `row * n_cols + col`, ignoring guard positions.
+        This is intended for use as the state index in tabular RL.
+
+        Args:
+            mdp_state: MDP state `(agent_pos, guard_states)`
+
+        Returns:
+            Corresponding index in `[0, n_rows * n_cols)`
+        """
+
         row, col = mdp_state[0]
         return row * self.config.n_cols + col
 
     def index_to_mdp_state(self, index: int) -> MDPState:
+        """
+        Map an index back to an MDP state, reusing current guard states.
+
+        The agent position is reconstructed from the index; the guard states
+        are taken from `self.guards`.
+
+        Args:
+            index: State index in `[0, n_rows * n_cols)`.
+
+        Returns:
+            Corresponding MDPState `(agent_pos, guard_states)`.
+        """
+
         row = index // self.config.n_cols
         col = index % self.config.n_cols
 
@@ -392,10 +501,20 @@ class GridWorld:
         return self._build_mdp_state((row, col))
 
     def compute_label(self, mdp_state: MDPState) -> int:
-        # Label encoding for DFA / shield:
-        #    0 = SAFE
-        #    1 = WALL      (on a wall cell)
-        #    2 = VISIBLE   (seen by guard or sharing cell with guard)
+        """
+        Compute a label for the given MDP state for use by the DFA/shield.
+
+        Label encoding:
+            0 = SAFE
+            1 = WALL      (agent on a wall cell)
+            2 = VISIBLE   (agent seen by guard or sharing cell with guard)
+
+        Args:
+            mdp_state: The full MDP state.
+
+        Returns:
+            Integer label representing safety category.
+        """
 
         agent_pos, _ = mdp_state
 
@@ -406,28 +525,32 @@ class GridWorld:
 
         return 0
 
-    def reset(self) -> int:
-        # Reset agent and guards first, then rebuild state
-
-        self.agent_pos = self.config.start
-        self.guards = self._init_guards()
-        self.goals = list(self.config.goals)
-        self.done = False
-
-        self.cur_state = self._build_mdp_state(self.agent_pos)
-        self.initial_state = self.cur_state
-
-        if self.shield is not None:
-            self.shield.reset()
-
-        return self.mdp_state_to_index(self.cur_state)
-
     def next_step(self, action: Action) -> tuple[int, float, bool, dict]:
-        # Standard step function:
-        # - optional shield to filter the proposed action
-        # - update agent position
-        # - move guards
-        # - compute reward / termination
+        """
+        Perform one environment step given an agent action.
+
+        Pipeline:
+            1. Optionally filter the proposed action via the `SafetyShield`.
+            2. Sample a successor MDP state via `peek_step`.
+            3. Apply the sampled transition to internal agent/guard objects.
+            4. Compute reward and termination flags.
+
+        Args:
+            action: Proposed agent action (index into `ACTIONS`).
+
+        Returns:
+            out: A tuple `(, reward, done, info)` where:
+                    - next_state_idx: integer state index for the next agent position,
+                    - reward: scalar reward,
+                    - done: True if the episode terminated,
+                    - info: dict with flags:
+                        * "goal": True if a goal was reached this step,
+                        * "caught": True if the agent was caught this step.
+
+        Raises:
+            RuntimeError: If the episode has already terminated and reset
+                has not been called.
+        """
 
         if self.done:
             raise RuntimeError("Episode has terminated. Please reset the environment.")
@@ -486,9 +609,47 @@ class GridWorld:
         return self.mdp_state_to_index(self.cur_state), reward, self.done, info
 
     def peek_step(self, mdp_state: MDPState, action: Action) -> set[MDPState]:
-        # Pure simulation: Given an arbitrary MDP state and an agent action,
-        # return the set of all possible next MDP states (agent + guards),
-        # considering all guard moves and avoiding guard–guard collisions.
+        """
+        Return all possible successor MDP states for a given state–action pair.
+
+        This method defines the environment’s transition relation in a
+        side-effect-free way.
+
+        The transition semantics are:
+
+        *Agent move*
+        - The agent attempts to move according to `action` (an index into
+          `ACTIONS`).
+        - If the target cell is out of bounds, a wall, or currently occupied by
+          a guard, the agent stays in place.
+        - Otherwise, the agent moves to the target cell.
+
+        *Guard moves*
+        - Each guard considers locally valid moves produced by `Guard.peek_step`,
+          which only proposes moves that:
+            - remain in bounds,
+            - avoid walls,
+            - avoid the (already updated) agent position, and
+            - avoid other guards’ current positions.
+        - The joint successor set is formed from all combinations of local guard
+          moves in which no two guards occupy the same cell.
+
+        If every joint guard move would result in a guard–guard collision, the
+        guards are kept in their original positions and only the agent’s move
+        (or stay) is applied.
+
+        Args:
+            mdp_state:
+                Current MDP state `(agent_pos, guard_states)`, where
+                `agent_pos` is a `(row, col)` tuple and `guard_states` is a
+                tuple of `(guard_pos, facing_direction)` pairs.
+            action:
+                Agent action index (index into `ACTIONS`).
+
+        Returns:
+            A set of successor MDP states. Each successor has the same
+            structure as `mdp_state`: `(next_agent_pos, next_guard_states)`.
+        """
 
         key = (mdp_state, action)
         if key in self._succ_cache:
@@ -597,3 +758,32 @@ class GridWorld:
             return agent_pos  # Stay
 
         return new_pos
+
+    def reset(self) -> int:
+        """
+        Reset the environment to its initial configuration.
+
+        Resets:
+          - agent position to `config.start`,
+          - guards to the initial guard states from `config.guards`,
+          - remaining goals,
+          - `done` flag,
+          - current MDP state,
+          - shield's DFA state (if present).
+
+        Returns:
+            Integer state index corresponding to the reset MDP state.
+        """
+
+        self.agent_pos = self.config.start
+        self.guards = self._init_guards()
+        self.goals = list(self.config.goals)
+        self.done = False
+
+        self.cur_state = self._build_mdp_state(self.agent_pos)
+        self.initial_state = self.cur_state
+
+        if self.shield is not None:
+            self.shield.reset()
+
+        return self.mdp_state_to_index(self.cur_state)
