@@ -5,13 +5,51 @@ import numpy as np
 
 from agent import QLearningAgent
 from common.constants import ACTIONS
-from common.types import Action
-from common.types import Label
+from common.constants import VERBOSE
+from gridworld import GridConfig
 from gridworld import GridWorld
 from gridworld import GridConfigFactory
 from shield import SafetyShield
 from shield_synthesis.automaton.dfa import build_simple_dfa
 from shield_synthesis.safety_game import SafetyGameSolver
+
+
+def train(
+    config: GridConfig,
+    shielded: bool = True,
+    n_episodes: int = 500,
+    n_steps: int = 100,
+) -> tuple[list[float], list[int], list[int]]:
+    if shielded:
+        env, config = build_shielded_env(config)
+    else:
+        env = GridWorld(config)
+
+    n_states = config.n_rows * config.n_cols
+    n_actions = len(ACTIONS)
+
+    agent = QLearningAgent(
+        n_states=n_states,
+        n_actions=n_actions,
+        learning_rate=0.1,
+        discount_factor=0.95,
+        exploration_rate=1.0,
+        exploration_decay=0.995,
+        min_exploration_rate=0.01,
+        rng=env.rng,
+    )
+
+    rewards = []
+    steps = []
+    unsafe_flags = []  # 1 if caught in this episode, else 0
+
+    for _ in range(n_episodes):
+        total_reward, info, total_steps = run_episode(env, agent, n_steps)
+        rewards.append(total_reward)
+        steps.append(total_steps)
+        unsafe_flags.append(1 if info.get("caught", False) else 0)
+
+    return rewards, steps, unsafe_flags
 
 
 def run_episode(
@@ -32,21 +70,71 @@ def run_episode(
 
     agent.decay_exploration()
 
-    # step is 0-based, so total steps = step + 1
+    # Step is 0-based, so total steps = step + 1
     return total_reward, info, step + 1
 
 
-def build_shielded_env() -> tuple[GridWorld, GridConfigFactory]:
+def plot_results(
+    rewards: list[float],
+    steps: list[int],
+    unsafe_flags: list[int],
+    file_prefix: str,
+    rolling_window: int = 25,
+) -> None:
+    os.makedirs("plots", exist_ok=True)
+
+    # Plot average reward
+    plt.figure()
+    plt.plot(rolling_avg(rewards, rolling_window))
+    plt.title(f"Reward (rolling window={rolling_window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Reward")
+    plt.tight_layout()
+    plt.savefig(f"plots/{file_prefix}reward.png", dpi=150)
+
+    # Plot fraction of episodes where the agent was caught
+    plt.figure()
+    plt.plot(rolling_avg(unsafe_flags, rolling_window))
+    plt.title(
+        f"Fraction of Episodes Caught without Shield (rolling window={rolling_window})"
+    )
+    plt.xlabel("Episode")
+    plt.ylabel("Fraction caught")
+    plt.tight_layout()
+    plt.savefig(f"plots/{file_prefix}unsafe.png", dpi=150)
+
+    # Plot average number of steps per episode
+    plt.figure()
+    plt.plot(rolling_avg(steps, rolling_window))
+    plt.title(f"Steps (rolling window={rolling_window})")
+    plt.xlabel("Episode")
+    plt.ylabel("Steps")
+    plt.tight_layout()
+    plt.savefig(f"plots/{file_prefix}steps.png", dpi=150)
+
+
+def rolling_avg(x: list[int], window: int = 10) -> np.ndarray:
+    x = np.array(x)
+
+    if x.size < window:
+        return x
+
+    cumsum = np.cumsum(np.insert(x, 0, 0))
+    avg = (cumsum[window:] - cumsum[:-window]) / float(window)
+
+    return avg
+
+
+def build_shielded_env(config: GridConfig) -> tuple[GridWorld, GridConfigFactory]:
     # 1. Random grid with walls and guards
-    config = GridConfigFactory.random_config(n_rows=8, n_cols=8)
     env = GridWorld(config)
 
     # 2. Build DFA for the safety property:
     #    - Label 0 = SAFE
     #    - Labels 1,2 = UNSAFE (wall / visible)
-    actions: list[Action] = list(range(len(ACTIONS)))
-    safe_labels: list[Label] = [0]
-    unsafe_labels: list[Label] = [1, 2]
+    actions = list(range(len(ACTIONS)))
+    safe_labels = [0]
+    unsafe_labels = [1, 2]
 
     dfa = build_simple_dfa(
         safe_labels=safe_labels,
