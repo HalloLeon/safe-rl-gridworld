@@ -3,13 +3,11 @@ from typing import Callable
 
 
 from common.constants import VERBOSE
+from common.types import Action
+from common.types import Label
+from common.types import MDPState
 from shield_synthesis.automaton.dfa import DFA
 from shield_synthesis.automaton.dfa import DFAState
-
-
-MDPState = tuple
-Label = int
-Action = int
 
 
 class SafetyGameSolver:
