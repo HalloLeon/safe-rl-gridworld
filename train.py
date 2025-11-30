@@ -362,7 +362,7 @@ def plot_results(
         fig.suptitle(
             (
                 f"Grid {config.n_rows}×{config.n_cols} "
-                f"(guards={n_guards}, walls={n_walls}, goals={n_goals}), seed={config.rng.seed}"
+                f"(guards={n_guards}, walls={n_walls}, goals={n_goals})"
             ),
             fontsize=12,
             y=0.98,
