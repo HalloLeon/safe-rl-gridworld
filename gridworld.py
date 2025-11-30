@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import product
 import random
 from typing import NoReturn
 from typing import Optional
@@ -311,7 +312,10 @@ class GridWorld:
         self.cur_state = self._build_mdp_state(self.agent_pos)
         self.initial_state = self.cur_state
 
-        self.done: bool = False
+        self.done = False
+
+        # Cache for peek_step
+        self._succ_cache: dict[tuple[MDPState, Action], set[MDPState]] = {}
 
     def _init_guards(self) -> list[Guard]:
         guards = []
@@ -415,7 +419,7 @@ class GridWorld:
 
         return self.mdp_state_to_index(self.cur_state)
 
-    def next_step(self, action: int):
+    def next_step(self, action: Action) -> tuple[int, float, bool, dict]:
         # Standard step function:
         # - optional shield to filter the proposed action
         # - update agent position
@@ -434,20 +438,25 @@ class GridWorld:
         else:
             chosen_action = self._select_action(action)
 
-        # 2. Move agent
-        new_agent_pos = self._next_agent_pos(self.agent_pos, chosen_action)
+        # 2. Sample from the same model used for shield/safety game
+        successors = self.peek_step(mdp_before, chosen_action)
+        next_mdp_state = self.rng.choice(tuple(successors))
 
-        # Temporarily store new agent position so guards avoid it
+        new_agent_pos, new_guard_states = next_mdp_state
+
+        # 3. Apply to env objects
         self.agent_pos = new_agent_pos
 
-        # 3. Move guards
-        for guard in self.guards:
-            guard.next_step()
+        for guard, (g_pos, g_face) in zip(self.guards, new_guard_states):
+            guard.pos = g_pos
+            guard.facing_direction = g_face
 
-        # 4. Rebuild current MDP state
-        self.cur_state = self._build_mdp_state(self.agent_pos)
+        self.cur_state = next_mdp_state
 
-        # 5. Compute reward and termination
+        if self.shield is not None:
+            self.shield.update(self.cur_state, chosen_action)
+
+        # 4. Compute reward and termination
         reward = self.config.penalty_step
         info = {
             "goal": False,
@@ -473,39 +482,82 @@ class GridWorld:
 
         return self.mdp_state_to_index(self.cur_state), reward, self.done, info
 
-    def peek_step(self, mdp_state: MDPState, action: int) -> MDPState:
-        # Pure simulation: Given an arbitrary MDP state and action,
-        # return the next MDP state (agent + guards) without side effects.
-        # Guards also avoid colliding with each other.
+    def peek_step(self, mdp_state: MDPState, action: Action) -> set[MDPState]:
+        # Pure simulation: Given an arbitrary MDP state and an agent action,
+        # return the set of all possible next MDP states (agent + guards),
+        # considering all guard moves and avoiding guard–guard collisions.
+
+        key = (mdp_state, action)
+        if key in self._succ_cache:
+            return self._succ_cache[key]
 
         agent_pos, guard_states = mdp_state
 
-        # Simulate agent
-        new_agent_pos = self._next_agent_pos(agent_pos, action)
+        # 1. Compute the agent's new position using only (agent_pos, guard_states)
+        #    so that the simulated transition depends purely on the given MDP state
+        #    and not on the environment's internal guard objects (env.guards).
+        dr, dc = ACTIONS[action]
+        new_pos = (agent_pos[0] + dr, agent_pos[1] + dc)
 
-        # Simulate guards based on new agent position
-        new_guard_states = []
+        # Build a set of guard positions from guard_states
+        guard_positions = {g_pos for (g_pos, _) in guard_states}
+
+        if (
+            not self.in_bounds(new_pos)
+            or self.is_wall(new_pos)
+            or new_pos in guard_positions
+        ):
+            new_agent_pos = agent_pos  # Stay
+        else:
+            new_agent_pos = new_pos
+
+        # 2. For each guard, compute possible next states
         original_positions = [g_pos for (g_pos, _) in guard_states]
+        guard_options_per_guard = []
 
         for idx, (g_pos, facing_direction) in enumerate(guard_states):
-            # Other guards' positions are:
+            # Other guards' positions for this guard:
             #   - all original positions except this guard's
-            #   - all new positions already assigned earlier in this loop
-            other_guards = set(original_positions[:idx] + original_positions[idx + 1 :])
-            other_guards.update(pos for (pos, _) in new_guard_states)
+            #   - all newly chosen positions of earlier guards
+            other_guards_original_positions = set(
+                original_positions[:idx] + original_positions[idx + 1 :]
+            )
 
-            ng_pos, ng_facing_direction = Guard.peek_step(
+            # First, get candidates relative to original layout
+            base_candidates = Guard.peek_step(
                 self,
                 g_pos,
                 facing_direction,
                 new_agent_pos,
-                other_guards,
+                other_guards_original_positions,
             )
-            new_guard_states.append((ng_pos, ng_facing_direction))
 
-        return (new_agent_pos, tuple(new_guard_states))
+            guard_options_per_guard.append(base_candidates)
 
-    def _select_action(self, action: int) -> int:
+        # 3. Combine guards' moves via Cartesian product,
+        #    then filter out combinations where guards collide
+        next_states = set()
+
+        for combo in product(*guard_options_per_guard):
+            # Combo is a tuple of GuardState for each guard
+            new_positions = [pos for (pos, _) in combo]
+
+            if len(new_positions) != len(set(new_positions)):
+                # Collision: two guards in the same cell
+                continue
+
+            next_states.add((new_agent_pos, combo))
+
+        # If all combinations collided somehow (very unlikely), at least keep
+        # the original guard layout (i.e., no guard move).
+        if not next_states:
+            next_states.add((new_agent_pos, guard_states))
+
+        self._succ_cache[key] = next_states
+
+        return next_states
+
+    def _select_action(self, action: Action) -> int:
         # Simple fallback action selection when no shield is provided:
         # - if proposed action leads to a valid cell, keep it;
         # - otherwise try to find some valid action;
