@@ -21,17 +21,18 @@ from safe_rl_gridworld.core.shield_synthesis.safety_game import SafetyGameSolver
 
 def evaluate_shield_effectiveness(
     config: GridConfig,
+    n_episodes: int = 500,
+    n_steps: int = 100,
     verbose: bool = False,
 ):
     """
     Run a comparison experiment between shielded and unshielded training.
 
     This function:
-      - Prints the grid configuration for visual inspection,
-      - Trains an unshielded Q-learning agent,
-      - Trains a shielded agent on the same environment,
-      - Measures rewards, steps, and safety violations for both,
-      - Produces a combined 3-panel plot comparing the two training curves
+      - Prints the grid configuration for visual inspection.
+      - Runs `evaluate_performance` for an unshielded agent.
+      - Runs `evaluate_performance` for a shielded agent on the same grid.
+      - Produces a combined 3-panel plot comparing the curves
         and saves it to plots/shielded_vs_unshielded.png".
 
     The plot includes:
@@ -62,83 +63,31 @@ def evaluate_shield_effectiveness(
                 f"Train config:\n"
                 f"  Rows:       {config.n_rows}\n"
                 f"  Cols:       {config.n_cols}\n"
-                f"  Guards:     {len(config.guards)}\n"
+                f"  Guards:     {len(config.guards)}"
             )
-            start = time.perf_counter()
-            print("Unshielded training:")
 
-        unshielded_rewards, unshielded_steps, unshielded_unsafe_flags = train(
-            config, shielded=False
+        print("\n==========Unshielded==========")
+
+        fig, (ax_reward, ax_steps, ax_unsafe) = evaluate_performance(
+            config,
+            n_episodes=n_episodes,
+            n_steps=n_steps,
+            shielded=False,
         )
 
-        if VERBOSE:
-            end = time.perf_counter()
-            print(f"Training time: {end - start:.2f} seconds")
+        print("\n==========Shielded==========")
 
-            unshielded_percentage_unsafe = (
-                sum(unshielded_unsafe_flags) / len(unshielded_unsafe_flags) * 100
-            )
-            print(
-                f"Unsafe episodes: "
-                f"{sum(unshielded_unsafe_flags)} "
-                f"({unshielded_percentage_unsafe:.2f}%)"
-            )
-
-            unshielded_avg_reward = np.mean(unshielded_rewards)
-            print(f"Average reward: {unshielded_avg_reward:.2f}")
-
-            unshielded_avg_steps = np.mean(unshielded_steps)
-            print(f"Average steps per episode: {unshielded_avg_steps:.2f}\n")
-
-            start = time.perf_counter()
-            print("Shielded training:")
-
-        shielded_rewards, shielded_steps, shielded_unsafe_flags = train(
-            config, shielded=True
+        fig, (ax_reward, ax_steps, ax_unsafe) = evaluate_performance(
+            config,
+            n_episodes=n_episodes,
+            n_steps=n_steps,
+            shielded=True,
+            fig=fig,
+            axes=(ax_reward, ax_steps, ax_unsafe),
         )
-
-        if VERBOSE:
-            end = time.perf_counter()
-            print(f"Training time: {end - start:.2f} seconds")
-
-            shielded_percentage_unsafe = (
-                sum(shielded_unsafe_flags) / len(shielded_unsafe_flags) * 100
-            )
-            print(
-                f"Unsafe episodes: "
-                f"{sum(shielded_unsafe_flags)} "
-                f"({shielded_percentage_unsafe:.2f}%)"
-            )
-
-            shielded_avg_reward = np.mean(shielded_rewards)
-            print(f"Average reward: {shielded_avg_reward:.2f}")
-
-            shielded_avg_steps = np.mean(shielded_steps)
-            print(f"Average steps per episode: {shielded_avg_steps:.2f}\n")
-
-            delta_avg_reward = shielded_avg_reward - unshielded_avg_reward
-            print(f"Delta average reward (shielded - unshielded): {delta_avg_reward:.2f}\n")
     except RuntimeError as e:
         print(e)
         exit(1)
-
-    fig, (ax_reward, ax_unsafe, ax_steps) = plot_results(
-        config,
-        unshielded_rewards,
-        unshielded_steps,
-        unshielded_unsafe_flags,
-        label="unshielded",
-    )
-
-    plot_results(
-        config,
-        shielded_rewards,
-        shielded_steps,
-        shielded_unsafe_flags,
-        label="shielded",
-        fig=fig,
-        axes=(ax_reward, ax_unsafe, ax_steps),
-    )
 
     fig.tight_layout()
     os.makedirs("plots", exist_ok=True)
@@ -147,10 +96,11 @@ def evaluate_shield_effectiveness(
 
 def train(
     config: GridConfig,
+    agent: QLearningAgent,
     shielded: bool = True,
     n_episodes: int = 500,
     n_steps: int = 100,
-) -> tuple[list[float], list[int], list[int]]:
+) -> tuple[list[float], list[int], list[int], GridWorld]:
     """
     Train a Q-learning agent in a (possibly shielded) gridworld environment.
 
@@ -171,31 +121,18 @@ def train(
             Maximum number of environment steps per episode.
 
     Returns:
-        (rewards, steps, unsafe_flags):
+        (rewards, steps, unsafe_flags, env):
             - rewards: Total reward obtained in each episode.
             - steps: Number of steps taken in each episode.
             - unsafe_flags: 1 if the agent was caught in the episode,
               0 otherwise.
+            - env: The (possibly shielded) `GridWorld` instance used for training.
     """
 
     if shielded:
         env, config = _build_shielded_env(config)
     else:
         env = GridWorld(config)
-
-    n_states = config.n_rows * config.n_cols
-    n_actions = len(ACTIONS)
-
-    agent = QLearningAgent(
-        n_states=n_states,
-        n_actions=n_actions,
-        learning_rate=0.1,
-        discount_factor=0.95,
-        exploration_rate=1.0,
-        exploration_decay=0.995,
-        min_exploration_rate=0.01,
-        rng=env.rng,
-    )
 
     rewards = []
     steps = []
@@ -207,7 +144,7 @@ def train(
         steps.append(total_steps)
         unsafe_flags.append(1 if info.get("caught", False) else 0)
 
-    return rewards, steps, unsafe_flags
+    return rewards, steps, unsafe_flags, env
 
 
 def _build_shielded_env(config: GridConfig) -> tuple[GridWorld, GridConfigFactory]:
@@ -321,6 +258,223 @@ def _run_episode(
     return total_reward, info, step + 1
 
 
+def evaluate_policy(
+    env: GridWorld,
+    agent: QLearningAgent,
+    n_episodes: int = 500,
+    max_steps: int = 100,
+) -> tuple[list[float], list[int], list[int]]:
+    """
+    Evaluate a (pre-trained) Q-learning agent in the gridworld.
+
+    This function runs the agent for `n_episodes` episodes in either a
+    shielded or unshielded environment, with exploration disabled and
+    learning turned off. It is intended as a *pure evaluation* phase,
+    separate from training.
+
+    Args:
+        config:
+            Static grid configuration describing size, walls, goals, and guards.
+        agent:
+            A `QLearningAgent` that has already been trained. Its Q-table
+            is used as a fixed policy during evaluation.
+        shielded:
+            If True, constructs a shielded environment using the same
+            `_build_shielded_env` pipeline as in training. If False,
+            uses a bare `GridWorld` without shielding.
+        n_episodes:
+            Number of evaluation episodes to run.
+        max_steps:
+            Maximum number of environment steps per evaluation episode.
+
+    Returns:
+        (rewards, unsafe_flags, steps):
+            - rewards: Total reward obtained in each evaluation episode.
+            - steps: Number of steps taken in each evaluation episode.
+            - unsafe_flags: 1 if the agent was caught in that episode,
+              0 otherwise.
+    """
+    # Temporarily disable exploration (pure greedy policy)
+    old_eps = agent.exploration_rate
+    agent.exploration_rate = 0.0
+
+    rewards = []
+    unsafe_flags = []
+    steps = []
+
+    for _ in range(n_episodes):
+        state = env.reset()
+        total_reward = 0.0
+        total_steps = 0
+        last_info: dict = {}
+
+        for _ in range(max_steps):
+            action = agent.get_action(state)  # Greedy, since ε=0
+            next_state, reward, done, info = env.next_step(action)
+
+            total_reward += reward
+            total_steps += 1
+            state = next_state
+            last_info = info
+
+            if done:
+                break
+
+        rewards.append(total_reward)
+        steps.append(total_steps)
+        unsafe_flags.append(1 if last_info.get("caught", False) else 0)
+
+    # Restore exploration rate
+    agent.exploration_rate = old_eps
+
+    return rewards, steps, unsafe_flags
+
+
+def evaluate_performance(
+    config: GridConfig,
+    n_episodes: int,
+    n_steps: int,
+    shielded: bool = False,
+    fig: Optional[Figure] = None,
+    axes: Optional[Sequence[Axes]] = None,
+) -> tuple[Figure, Sequence[Axes]]:
+    """
+    Train and evaluate a Q-learning agent in a (possibly shielded) gridworld.
+    This function trains a Q-learning agent for a fixed number of episodes,
+    then evaluates its learned policy for the same number of episodes.
+
+    This function:
+      - Trains and evaluates an unshielded Q-learning agent.
+      - Trains and evaluates a shielded agent on the same environment.
+      - Measures rewards, steps, and safety violations for both.
+      - Produces a combined 3-panel plot comparing the training
+        and evaluation curves.
+
+    Args:
+        config:
+            A `GridConfig` instance describing the environment layout
+            (walls, guards, starting position, goals, etc.).
+        n_episodes:
+            Number of training and evaluation episodes.
+        n_steps:
+            Maximum number of environment steps per episode.
+        shielded:
+            If True, uses a safety shield during training and evaluation. If
+            False, uses the bare `GridWorld` without shielding.
+        fig:
+            Optional figure to draw into. If provided, `axes` must also
+            be provided and correspond to this figure. If None, a new
+            figure is created.
+        axes:
+            Optional sequence of three `Axes` objects,
+            `(reward_axis, unsafe_axis, steps_axis)`. If provided, plots
+            are drawn into these axes (and `fig` should be the figure
+            they belong to). If None, a new set of axes is created along
+            with a new figure.
+
+    Returns:
+        (fig, axes):
+            The figure and axes containing the
+            plots. If `fig` and `axes` were provided, the same objects are
+            returned; otherwise, newly created ones are returned.
+    """
+
+    start = time.perf_counter()
+
+    agent = build_agent(
+        n_states=config.n_rows * config.n_cols,
+        n_actions=len(ACTIONS),
+        config=config,
+    )
+
+    train_rewards, train_steps, train_unsafe, env = train(
+        config,
+        agent,
+        shielded=shielded,
+        n_episodes=n_episodes,
+        n_steps=n_steps,
+    )
+
+    print()
+    end = time.perf_counter()
+    print(f"Training time: {end - start:.2f} seconds")
+    start = time.perf_counter()
+
+    print_metrics(
+        train_rewards,
+        train_steps,
+        train_unsafe,
+        label="training",
+    )
+
+    (ax_reward, ax_unsafe, ax_steps) = axes or (None, None, None)
+
+    fig, (ax_reward, ax_unsafe, ax_steps) = plot_results(
+        config,
+        train_rewards,
+        train_steps,
+        train_unsafe,
+        label=f"[training] {'shielded' if shielded else 'unshielded'}",
+        fig=fig,
+        axes=(ax_reward, ax_unsafe, ax_steps),
+    )
+
+    eval_rewards, eval_steps, eval_unsafe = evaluate_policy(
+        env,
+        agent,
+        n_episodes=n_episodes,
+        max_steps=n_steps,
+    )
+
+    end = time.perf_counter()
+    print(f"Evaluation time: {end - start:.2f} seconds")
+
+    print_metrics(
+        eval_rewards,
+        eval_steps,
+        eval_unsafe,
+        label="evaluation",
+    )
+
+    fig, (ax_reward, ax_unsafe, ax_steps) = plot_results(
+        config,
+        eval_rewards,
+        eval_steps,
+        eval_unsafe,
+        label=f"[evaluation] {'shielded' if shielded else 'unshielded'}",
+        fig=fig,
+        axes=(ax_reward, ax_unsafe, ax_steps),
+    )
+
+    return fig, (ax_reward, ax_unsafe, ax_steps)
+
+
+def build_agent(n_states: int, n_actions: int, config: GridConfig) -> QLearningAgent:
+    """
+    Build a Q-learning agent with standard hyperparameters.
+
+    Args:
+        n_states: Number of states in the environment.
+        n_actions: Number of actions available to the agent.
+
+    Returns:
+        A Q-learning agent instance.
+    """
+
+    agent = QLearningAgent(
+        n_states=n_states,
+        n_actions=n_actions,
+        learning_rate=0.1,
+        discount_factor=0.95,
+        exploration_rate=1.0,
+        exploration_decay=0.995,
+        min_exploration_rate=0.01,
+        rng=config.rng,
+    )
+
+    return agent
+
+
 def plot_results(
     config: GridConfig,
     rewards: list[float],
@@ -432,6 +586,10 @@ def plot_results(
     ax_steps.set_xlabel("Episode")
     ax_steps.set_ylabel("Steps")
 
+    ax_reward.legend()
+    ax_unsafe.legend()
+    ax_steps.legend()
+
     return fig, (ax_reward, ax_unsafe, ax_steps)
 
 
@@ -524,6 +682,35 @@ def print_grid_config(config: GridConfig) -> None:
         print(f"{row_str}")
 
     print("")  # Blank line after the grid
+
+
+def print_metrics(
+    rewards: list[float], steps: list[int], unsafe_flags: list[int], label: str = ""
+) -> None:
+    """
+    Print average metrics (reward, steps, safety violations) to stdout.
+
+    Args:
+        rewards:
+            List of total episode rewards, one per episode.
+        steps:
+            List of episode lengths (in time steps), one per episode.
+        unsafe_flags:
+            List of episode-level flags, where 1 indicates the agent was
+            caught in that episode, and 0 otherwise.
+        label:
+            Label for this run (e.g. "unshielded", "shielded"), used in
+            the printed output.
+    """
+
+    rewards = np.mean(rewards)
+    print(f"[{label}] Average reward: {rewards:.2f}")
+
+    steps = np.mean(steps)
+    print(f"[{label}] Average steps per episode: {steps:.2f}")
+
+    unsafe_fraction = sum(unsafe_flags) / len(unsafe_flags) * 100
+    print(f"[{label}] Unsafe episodes: {sum(unsafe_flags)} ({unsafe_fraction:.2f}%)\n")
 
 
 if __name__ == "__main__":
