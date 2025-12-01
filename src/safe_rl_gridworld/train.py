@@ -61,10 +61,13 @@ def evaluate_shield_effectiveness(
     try:
         if VERBOSE:
             print(
-                f"Train config:\n"
+                "Training config:\n"
                 f"  Rows:       {config.n_rows}\n"
                 f"  Cols:       {config.n_cols}\n"
-                f"  Guards:     {len(config.guards)}"
+                f"  Guards:     {len(config.guards)}\n"
+                f"  Walls:      {len(config.walls)}\n"
+                f"  Episodes:   {n_episodes}\n"
+                f"  Max steps:  {n_steps}\n"
             )
 
         print("\n==========Unshielded==========")
