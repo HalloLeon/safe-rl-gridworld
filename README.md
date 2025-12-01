@@ -17,7 +17,7 @@ Guards have a simple, limited field of view: they can only see in the direction 
 
 ---
 
-# 1. Gridworld Overview
+# 1 Gridworld Overview
 
 The gridworld is a 2D grid with:
 
@@ -74,7 +74,7 @@ If caught, the episode ends (if `terminate_if_caught= True`).
 
 ---
 
-# 2. Safety Shield
+# 2 Safety Shield
 
 - The **Safety Game Solver** computes all reachable product states (MDP state × DFA state) and determines the winning region: the set of states from which the agent can remain safe indefinitely under some strategy.
 - The **Safety Shield** ensures that the agent’s chosen action never leaves the winning region.
@@ -83,33 +83,60 @@ If the initial MDP state is not in the winning region, the configuration is **un
 
 ---
 
-# 3. Running the Project
+# 3 Running the Project
 
-````
+```
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
 
 # Run run_train.sh to execute train.py
 run_train.sh
-````
+```
 
 ---
 
-# 4. Example
+# 4 Experiments
 
 ---
 
-Results for this 7×7 gridworld (`seed=42`):
+The evaluation phase is run _after_ all training episodes and uses the same number of episodes as training. In evaluation, the shielded agent consistently achieves a high average reward, reflecting that the shield successfully prevents it from entering unsafe states (e.g., being seen or caught by guards). In contrast, the unshielded agent shows fluctuating rewards, as it cannot reliably avoid the guards and occasionally moves into unsafe regions.
+
+This difference is also clearly visible in the caught fraction: for the shielded agent, the fraction of episodes in which it is caught remains at zero, while the unshielded agent maintains a fluctuating caught fraction throughout evaluation.
+
+`S` = start, `G` = guard, `#` = wall, `^ v < >` = guard facing directions, `.` = empty cell.
+
+---
+
+## 4.1 Shielded vs Unshielded on a 7×7 Gridworld (`seed = 0`)
+
+---
 
 ```
-.  .  G  .  #  ^  . 
-.  .  .  .  #  .  # 
-.  .  .  #  #  .  . 
-.  .  .  #  .  .  . 
-.  .  .  .  .  #  . 
-.  .  .  .  .  .  . 
+.  .  G  .  #  ^  .
+.  .  .  .  #  .  #
+.  .  .  #  #  .  .
+.  .  .  #  .  .  .
+.  .  .  .  .  #  .
+.  .  .  .  .  .  .
 .  .  .  S  #  <  #
 ```
 
-![Results](plots/7x7-seed_42-shielded_vs_unshielded.png)
+![Results-Seed_0](plots/7x7-seed_0-shielded_vs_unshielded.png)
+
+---
+
+## 4.1 Shielded vs Unshielded on a 7×7 Gridworld (`seed = 42`)
+
+---
+```
+.  .  .  .  .  G  # 
+.  #  .  .  .  #  . 
+.  v  .  .  .  .  . 
+.  .  .  .  .  .  . 
+.  .  #  #  #  .  . 
+S  .  .  <  .  #  . 
+.  #  .  .  .  .  #
+```
+
+![Results-Seed_42](plots/7x7-seed_42-shielded_vs_unshielded.png)
