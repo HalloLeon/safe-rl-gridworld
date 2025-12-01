@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 from typing import Optional
@@ -713,6 +714,91 @@ def print_metrics(
     print(f"[{label}] Unsafe episodes: {sum(unsafe_flags)} ({unsafe_fraction:.2f}%)\n")
 
 
+def parse_args() -> argparse.Namespace:
+    """
+    Parse command-line arguments for grid configuration and hyperparameters.
+
+    Returns:
+        An `argparse.Namespace` containing the parsed arguments.
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate shield effectiveness with configurable grid parameters."
+    )
+
+    default_n_rows = 7
+    default_n_cols = 7
+    default_n_guards = 2
+    default_walls_fraction = 0.2
+    default_seed = 0
+
+    default_n_episodes = 500
+    default_n_steps = 100
+
+    parser.add_argument(
+        "-r",
+        "--rows",
+        type=int,
+        default=default_n_rows,
+        help=f"Number of rows in the grid (default: {default_n_rows}).",
+    )
+    parser.add_argument(
+        "-c",
+        "--cols",
+        type=int,
+        default=default_n_cols,
+        help=f"Number of columns in the grid (default: {default_n_cols}).",
+    )
+    parser.add_argument(
+        "-g",
+        "--guards",
+        type=int,
+        default=default_n_guards,
+        help=f"Number of guards to place in the grid (default: {default_n_guards}).",
+    )
+    parser.add_argument(
+        "-w",
+        "--walls",
+        type=float,
+        default=default_walls_fraction,
+        help=(
+            "Fraction of cells that should be walls, between 0.0–1.0"
+            f"(default: {default_walls_fraction})."
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--seed",
+        type=int,
+        default=default_seed,
+        help=f"Random seed for reproducibility (default: {default_seed}).",
+    )
+    parser.add_argument(
+        "--episodes",
+        type=int,
+        default=default_n_episodes,
+        help=f"Number of training/evaluation episodes (default: {default_n_episodes}).",
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=default_n_steps,
+        help=f"Maximum number of steps per episode (default: {default_n_steps}).",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    config = GridConfigFactory.build_random_config(7, 7, n_guards=2, seed=0)
-    evaluate_shield_effectiveness(config, verbose=True)
+    args = parse_args()
+
+    config = GridConfigFactory.build_random_config(
+        args.rows,
+        args.cols,
+        n_guards=args.guards,
+        walls_fraction=args.walls,
+        seed=args.seed,
+    )
+    evaluate_shield_effectiveness(
+        config, n_episodes=args.episodes, n_steps=args.steps, verbose=True
+    )
